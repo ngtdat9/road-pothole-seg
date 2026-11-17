@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "road-pothole-seg"
+version = "0.1.0"
+description = "Real-time road and pothole instance segmentation on CPU with ONNX Runtime."
+readme = "README.md"
+# 3.10 is the system Python of Ubuntu 22.04 / ROS 2 Humble, where Project 2 installs this.
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Ngo Thanh Dat" }]
+# Floors only: ROS 2 Humble's cv_bridge is built against numpy 1.x, so numpy 2 must not be forced.
+dependencies = [
+    "numpy>=1.23",
+    "opencv-python>=4.8",
+    "onnxruntime>=1.17",
+    "supervision>=0.25",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6", "pyyaml>=6"]
+
+[tool.setuptools.packages.find]
+include = ["road_pothole_seg*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["docs"]   # plan files hold hand-aligned API sketches
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "C4", "SIM"]
