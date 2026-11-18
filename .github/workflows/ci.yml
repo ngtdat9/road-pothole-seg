@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install ruff
+      - run: ruff check .
+      - run: ruff format --check .
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 3.10 = Ubuntu 22.04 / ROS 2 Humble (Project 2), with numpy 1.x like its cv_bridge.
+          - python: "3.10"
+            numpy: "numpy<2"
+          - python: "3.10"
+            numpy: "numpy"
+          - python: "3.11"
+            numpy: "numpy"
+          - python: "3.12"
+            numpy: "numpy"
+    name: test (py${{ matrix.python }}, ${{ matrix.numpy }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install
+        run: pip install -e ".[dev]" "${{ matrix.numpy }}"
+      - name: Show versions
+        run: python -c "import numpy, cv2, onnxruntime, supervision; print(numpy.__version__, cv2.__version__, onnxruntime.__version__, supervision.__version__)"
+      - name: Test
+        run: pytest -q
