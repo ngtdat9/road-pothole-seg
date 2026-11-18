@@ -184,7 +184,7 @@ def analyse_potholes(seg: Segmentation,
                      severity_bins: SeverityBins | None = None) -> list[Pothole]: ...
 
 class PotholeTracker:
-    def __init__(self, frame_rate: float = 30.0, **matching_thresholds): ...
+    def __init__(self, frame_rate: float = 30.0): ...  # ByteTrack thresholds added as named optional args
     def update(self, potholes: list[Pothole]) -> list[Pothole]: ...  # assigns track_id
 ```
 
@@ -203,8 +203,8 @@ class PotholeTracker:
   that conflicts with a fixed-shape model raises `ValueError`.
 - **Masks** stay full-frame HxW bool; memory is small enough at both frame sizes.
 - **`score` and `bbox_xyxy`** are part of `Pothole` so the tracker never recomputes them.
-- **`PotholeTracker`** takes `frame_rate` and matching thresholds as optional
-  arguments (dashcam ≈ 30 FPS, drone 5–10 Hz).
+- **`PotholeTracker`** takes `frame_rate` (dashcam ≈ 30 FPS, drone 5–10 Hz). ByteTrack's
+  matching thresholds are added in Week 4 as named optional arguments, not `**kwargs`.
 
 Breaking changes after v1.0 mean a new major version. Additions (new optional
 arguments, new functions) are minor versions.
