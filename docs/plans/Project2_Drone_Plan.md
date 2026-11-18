@@ -115,7 +115,7 @@ not used: potholes baked into the road texture would all be labelled "road".
 | Frames from held-out sim test worlds | Viewpoint + appearance gap |
 | Project 1 real test split, after fine-tuning | Whether sim training hurt real performance |
 | Project 1 real test split, before fine-tuning | Baseline |
-| Real aerial/UAV pothole images (if found) | Viewpoint gap alone |
+| Real aerial/UAV pothole images — Pothole UAV Segmentation (Roboflow, dimz-fypwn) plus the 30 `DJI_*` frames of road segmentation v2 (the only ones with `road` masks), all kept out of Project 1 training | Viewpoint gap alone |
 
 ## 5. Resource checklist
 

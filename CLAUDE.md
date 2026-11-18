@@ -58,6 +58,16 @@ Week 1 (Nov 17–23): repo setup and dataset selection.
 - Fixed, seeded 70/15/15 split, grouped by source video or scene where possible.
 - Record every dataset's source, version, license and citation in `docs/datasets.md`.
 - Never use test-split images for anything except final evaluation.
+- Pothole-only sets get **pseudo-labelled road** (road teacher, reviewed by eye) in
+  training images only; never leave visible road or potholes unlabelled.
+- Real top-down/UAV images (Pothole UAV Segmentation, the `DJI_*` frames of road
+  segmentation v2) are reserved for Project 2's aerial test set: never used to train
+  or tune v1.0.
+- No box-only label line may reach training: Ultralytics drops every polygon in a
+  dataset that mixes boxes and polygons. Drop the box or the image, never keep both.
+- Per-source keep/drop decisions live in `docs/datasets.md`; the merge script follows them.
+- Raw downloads go in `data/raw/<slug>-v<version>/` (gitignored); merged sets are
+  versioned (`merged-v1`, ...) and uploaded to Drive as one zip.
 
 ## Conventions
 - Thresholds, input sizes and severity bins live in `configs/`, never hardcoded.

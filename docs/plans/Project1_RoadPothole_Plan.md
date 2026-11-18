@@ -50,7 +50,7 @@ rather than hidden, each with a planned response.
 |---|---|
 | Relevant | Pothole masks on real road images match the goal directly. The main candidate set ("Potholes and Roads Instance Segmentation") also has a `road` class |
 | Sufficient | Expect 2,000–4,000 original images after merging 2–3 sets — enough to fine-tune a pretrained model. Exact count confirmed in Week 1 |
-| Representative — caveat | Mostly dashcam and handheld views from a few countries; few or no Korean roads. Stated as a limitation |
+| Representative — caveat | Dashcam and handheld views from India, Korea (GNSoft2, ~2,000 originals), Japan, Norway, US and others. Limitation: day-time only, and two of three sets were stretched to 640×640 by Roboflow |
 | Diverse | Mixed lighting, wet and dry roads, several countries — checked by sampling in Week 1, not assumed |
 | **Balanced — gap** | Pixel imbalance: road covers most of each image, potholes a small fraction, many small or distant potholes. Monitored with per-class metrics and a failure gallery grouped by pothole size |
 | **Accurate — caveat** | Community-labelled with no guaranteed review. Each set sampled (50 images) and rejected if masks are loose or wrong |
@@ -66,6 +66,18 @@ script removes near-duplicates by perceptual hashing **before** splitting, and
 splits by source video or scene where possible. The report shows the number of
 duplicates found and the metric difference between a naive merge and the
 de-duplicated one — a result most pothole projects never measure.
+
+**On partial labels (decided 2026-11-18):** only one or two candidate sets label
+`road`; the larger sets label potholes only. In those images the road is visible
+but unlabelled, so a single YOLO model would learn road as background. Fix:
+**pseudo-label road** — train a road teacher on the two-class set, predict road
+masks on the pothole-only images, check a sample by eye, and train on the union.
+The reverse also holds: a set is only usable if every visible pothole is labelled.
+
+**Aerial images are reserved for Project 2:** real top-down/UAV pothole images
+(e.g. Pothole UAV Segmentation) are never used to train or tune v1.0. They are
+Project 2's real-aerial test set, and its before/after fine-tuning comparison
+needs a v1.0 model that has never seen a top-down view.
 
 ## 4. Goal (technical)
 
@@ -215,17 +227,35 @@ arguments, new functions) are minor versions.
 - Create the repo from Section 6 with `pyproject.toml`, write `types.py`, and add
   stub functions returning dummy values so `run_video.py` runs end to end on day one.
 - Set up `pytest`, `ruff` and GitHub Actions for lint and tests.
-- Run the Roboflow agent search. Inspect each candidate before writing merge code:
-  original image count, classes, annotations per class, license, viewpoint, and 50
-  sampled masks by eye.
+- Run the Roboflow agent search. Inspect each candidate before writing merge code
+  with `training/scripts/inspect_dataset.py`: original image count, classes,
+  annotations per class, license, viewpoint, and 50 sampled masks by eye.
+- Candidates, in inspection order: Potholes and Roads Instance Segmentation (if
+  still online), road segmentation (university-evipv), VNR pothole segmentation,
+  GNSoft2 pothole segmentation (manhole/sewer as hard negatives). Pothole UAV
+  Segmentation is inspected and recorded but reserved for Project 2 (Section 3).
 - Pick 2–3 sets, record sources, licenses and citations in `docs/datasets.md`.
+  Key number: originals with `road` labels — it sets how much pseudo-labelling Week 2 needs.
 - Deliverable: repo skeleton with CI, dataset shortlist with a written quality check
 
 ### Week 2 (Nov 24–30) — Merged dataset and baseline model
 - Write `merge_datasets.py`: unify class names to `road` and `pothole`, find and
   remove near-duplicates (log how many), and make a fixed, seeded 70/15/15 split
-  grouped by source where possible.
+  grouped by source where possible. Per-source rules (details in `docs/datasets.md`):
+  - Keep one copy per original (strip Roboflow `.rf.` augmentation copies).
+  - No box-only line may reach training (Ultralytics then drops every polygon). In
+    Potholes and Roads v1, drop boxes that duplicate a polygon and drop the 451
+    images with a mask-less pothole (→ 904 originals).
+  - Exclude road segmentation v2's 30 `DJI_*` drone frames (reserved for Project 2).
+  - GNSoft2 v2: keep `pothole`; delete `manhole`, `sewer` and `vehicle` labels
+    (manholes and sewers become hard negatives); road comes from pseudo-labels.
+  - Group consecutive video frames (`pothole-*`, `vlcsnap-*`, `VID_*`, `*_mp4_*`) by video.
+  - Log every count removed by each rule.
 - Confirm the class imbalance from the real numbers.
+- Road pseudo-labels: train a nano road teacher on the two-class set's training
+  split only (~30 epochs), predict road on pothole-only training images, review 50
+  by eye, and keep the reviewed labels in the merged set. Teacher, threshold and
+  review counts go in `docs/results.md`. Valid/test images keep their original labels.
 - 5-epoch sanity run on Colab, then the nano baseline (640 px, 100 epochs).
 - Also train once on the naive merge (no de-duplication) for the leakage comparison.
 - Deliverable: merged dataset, baseline `best.pt`, first rows in `docs/results.md`
@@ -269,7 +299,9 @@ arguments, new functions) are minor versions.
 | Risk | Response |
 |---|---|
 | Poor labels in public sets | Sample before merging, drop bad sets |
-| Few sets with a `road` class | Keep the main road+pothole set; train road on that set only if needed and document it |
+| Few sets with a `road` class | Pseudo-label road on pothole-only images with a road teacher (Week 2). Training road on one set alone does not work: unlabelled road in the other sets teaches "road = background" |
+| Pseudo-labelled road is poor | Review 50 by eye; if bad, drop pothole-only images whose road mask fails review rather than train on wrong labels |
+| Week 2 overload (merge + teacher + baseline + naive merge) | Teacher is a short nano run; naive-merge run can move to Week 3 |
 | ONNX mask decoding doesn't match Ultralytics | Compare on 20 images in Week 4 before building on it |
 | Exams in Weeks 4–5 | Weeks 4–5 tasks are small and independent; the release can slip one week without affecting Project 2's start much |
 | Colab units run out | 5-epoch sanity runs; Kaggle free GPU as backup |
