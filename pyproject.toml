@@ -20,6 +20,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+demo = ["pyyaml>=6"]   # apps/ only; the package itself never reads YAML
 dev = ["pytest>=8", "ruff>=0.6", "pyyaml>=6"]
 
 [tool.setuptools.packages.find]
@@ -27,6 +28,7 @@ include = ["road_pothole_seg*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]   # lets tests import apps/
 
 [tool.ruff]
 line-length = 100

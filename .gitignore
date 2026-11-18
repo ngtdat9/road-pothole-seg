@@ -16,3 +16,6 @@ models/
 # datasets live outside git
 data/
 datasets/
+
+# demo outputs
+outputs/
