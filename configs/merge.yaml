@@ -1,0 +1,49 @@
+# Merge rules for the v1.0 training set. Read by training/scripts/merge_datasets.py.
+# Per-source keep/drop decisions are documented in docs/datasets.md; this file
+# encodes them. Change a rule here and in docs/datasets.md together.
+
+raw_root: data/raw
+out_dir: data/curated-v1          # curated pool: one copy per original, before dedup/split
+classes: [road, pothole]          # output class ids: road = 0, pothole = 1
+
+# A box-only label line that overlaps a same-class polygon's bounding box by more
+# than this IoU is the same object labelled twice: drop the line. Any other
+# box-only line is an object without a mask: drop the whole image.
+box_dup_iou: 0.5
+
+sources:
+  - slug: potholes-and-roads-instance-segmentation-nga49-v1
+    prefix: pr
+    real_road: true               # road is labelled by hand in this set
+    class_map: {"0": pothole, road: road}
+    exclude: []
+    # Video/sequence groups: the first matching pattern's group(1) is the group id.
+    # Unmatched images are their own group (near-duplicate linking adds more later).
+    groups:
+      - '^(pothole)-\d+'                      # frames of a few dashcam videos
+      - '^(vlcsnap-\d{4}-\d\d-\d\d-\d\dh)'    # VLC snapshots, grouped by hour
+      - '^(G00\d{3})\d{2}'                    # GoPro sequence, blocks of 100 frames
+
+  - slug: road-segmentation-onvjk-v2
+    prefix: rs
+    real_road: true
+    class_map: {pothole: pothole, road: road}
+    exclude:
+      - '^DJI_'                               # drone frames: reserved for Project 2
+    groups:
+      - '^(VID_\d{8}_\d{6})'
+      - '^(.+_mp4)-\d+'
+      - '^(Screenshot-\d{4}-\d\d-\d\d)'       # screenshots, grouped by day
+
+  - slug: pothole-segmentation-7fnkw-v2
+    prefix: gn
+    real_road: false              # no road labels: road is pseudo-labelled later
+    class_map: {pothole: pothole, manhole: null, sewer: null, vehicle: null}  # null = delete label
+    exclude: []
+    groups:
+      - '^([AP]M_[a-z]+_CI\d\d_\d{8}_\d{6})_' # one drive per camera and start time
+      - '^(V\d[FB]_HY_\d+_\d{8}_\d{6})'
+      - '^(frame_\d+)_'
+      - '^(Yuseonggu_\d{8})'
+      - '^(ys)_\d+'
+      - '^(KakaoTalk_\d{8}_\d{9})'

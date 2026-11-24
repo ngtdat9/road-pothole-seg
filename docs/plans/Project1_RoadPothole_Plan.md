@@ -223,7 +223,25 @@ arguments, new functions) are minor versions.
 
 ## 7. Week-by-week plan
 
+### End-to-end pipeline
+Every week below covers one or more of these stages.
+
+| # | Stage | What happens | Week |
+|---|---|---|---|
+| 1 | Acquire | Find, license-check and inspect candidate datasets | 1 |
+| 2 | Clean & curate | Unify classes, fix labels, drop reserved images, one copy per original, remove near-duplicates | 2 |
+| 3 | Complete labels | Pseudo-label road on pothole-only sets with a road teacher, review by eye | 2 |
+| 4 | Split | Seeded 70/15/15, grouped by video; naive split only for the leakage experiment | 2 |
+| 5 | Preprocess & augment | Letterbox (must match inference), COCO-pretrained weights, augmentation without vertical flip, input size, class imbalance | 2–3 |
+| 6 | Train | Sanity run, nano baseline, naive-merge run, small model, 2–3 tuning runs (Colab) | 2–3 |
+| 7 | Evaluate | Per-class mask mAP and road IoU, experiments, failure analysis; choose on val, test once | 3 |
+| 8 | Export | ONNX at 320, 480 and 640 px | 4 |
+| 9 | Inference pipeline | Real `Segmenter`, `clean_mask`, `PotholeTracker`; check against Ultralytics | 4 |
+| 10 | System evaluation | Per-stage CPU latency on Mac and PC, demo video | 5 |
+| 11 | Release | README, `v1.0` tag, ONNX weights, clean-install test | 5 |
+
 ### Week 1 (Nov 17–23) — Setup and dataset selection
+Stages: 1, plus the code skeleton.
 - Create the repo from Section 6 with `pyproject.toml`, write `types.py`, and add
   stub functions returning dummy values so `run_video.py` runs end to end on day one.
 - Set up `pytest`, `ruff` and GitHub Actions for lint and tests.
@@ -239,6 +257,7 @@ arguments, new functions) are minor versions.
 - Deliverable: repo skeleton with CI, dataset shortlist with a written quality check
 
 ### Week 2 (Nov 24–30) — Merged dataset and baseline model
+Stages: 2, 3, 4, then a first pass of 6.
 - Write `merge_datasets.py`: unify class names to `road` and `pothole`, find and
   remove near-duplicates (log how many), and make a fixed, seeded 70/15/15 split
   grouped by source where possible. Per-source rules (details in `docs/datasets.md`):
@@ -255,18 +274,25 @@ arguments, new functions) are minor versions.
 - Road pseudo-labels: train a nano road teacher on the two-class set's training
   split only (~30 epochs), predict road on pothole-only training images, review 50
   by eye, and keep the reviewed labels in the merged set. Teacher, threshold and
-  review counts go in `docs/results.md`. Valid/test images keep their original labels.
+  review counts go in `docs/results.md`. Pseudo road may also go on val images
+  (for model selection); test images never get pseudo labels.
+- Evaluation rule: pothole metrics on the whole test split; road metrics only on
+  test images with real road labels (`test_real_road.txt`).
 - 5-epoch sanity run on Colab, then the nano baseline (640 px, 100 epochs).
-- Also train once on the naive merge (no de-duplication) for the leakage comparison.
+- Also train once on the naive merge (no de-duplication, no grouping) for the leakage
+  comparison. The clean test split is held out first; the naive model is scored on
+  both the naive and the clean test split. Can move to Week 3 if Week 2 runs over.
 - Deliverable: merged dataset, baseline `best.pt`, first rows in `docs/results.md`
 
 ### Week 3 (Dec 1–7) — Tuning and failure analysis
+Stages: 5 (tuning), 6, 7.
 - Train the small model, then 2–3 tuning runs (input size, augmentation, epochs).
 - Collect 20 failure cases and group them by cause: shadows, puddles, patched
   asphalt, manholes, distant potholes, small potholes.
 - Deliverable: best model chosen, results table, failure gallery
 
 ### Week 4 (Dec 8–14) — Package: segmenter, post-processing, tracking
+Stages: 8, 9.
 - Export to ONNX at 320, 480 and 640 px.
 - Implement `Segmenter` on ONNX Runtime, including letterboxing for any frame size.
   Check its masks against Ultralytics output on 20 images, including non-square frames.
@@ -274,6 +300,7 @@ arguments, new functions) are minor versions.
 - Deliverable: package modules tested and matching the reference output
 
 ### Week 5 (Dec 15–21) — Demo, benchmark and release (v1.0)
+Stages: 10, 11.
 - Build `run_video.py`: overlays, FPS counter, CSV log
   (`track_id, first_frame, last_frame, max_area, severity`).
 - Demo footage: held-out test-split sequences plus public road videos whose
