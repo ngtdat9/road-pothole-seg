@@ -11,6 +11,13 @@ classes: [road, pothole]          # output class ids: road = 0, pothole = 1
 # box-only line is an object without a mask: drop the whole image.
 box_dup_iou: 0.5
 
+# Near-duplicate handling (training/scripts/dedup.py), dHash Hamming distance 0-64.
+# PROVISIONAL until the gallery (outputs/dedup/) has been reviewed by eye.
+dedup:
+  remove_max: 4      # <= this: the same picture -> keep one copy
+  link_max: 6        # <= this: the same scene/video -> same group, same split
+                     # (8 chains 922 images into one group, 10 chains 1,450)
+
 sources:
   - slug: potholes-and-roads-instance-segmentation-nga49-v1
     prefix: pr
