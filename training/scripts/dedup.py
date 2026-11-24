@@ -8,6 +8,11 @@ says how alike two images are. Two thresholds from configs/merge.yaml:
 - distance <= link_max: the same scene or video -> keep both, but give them one
   group so the split puts them on the same side (no train/test leakage)
 
+Removal works across datasets (the same stock photo can sit in two sets). Linking
+is within one dataset unless `link_across_sources` is set: different datasets
+never share a video, and one false cross-set match would glue two whole video
+groups together.
+
 Commands:
     python -m training.scripts.dedup gallery   # sample pairs per distance band, to pick thresholds
     python -m training.scripts.dedup apply     # write <pool>/dedup.csv and update report.json
@@ -54,6 +59,7 @@ class PoolImage:
 class DedupSettings:
     remove_max: int
     link_max: int
+    link_across_sources: bool = False
 
 
 # ---------------------------------------------------------------- loading
@@ -79,7 +85,11 @@ def load_settings(config_path: Path) -> DedupSettings:
     """The `dedup` section of configs/merge.yaml."""
     with config_path.open() as f:
         raw = yaml.safe_load(f)["dedup"]
-    settings = DedupSettings(int(raw["remove_max"]), int(raw["link_max"]))
+    settings = DedupSettings(
+        int(raw["remove_max"]),
+        int(raw["link_max"]),
+        bool(raw.get("link_across_sources", False)),
+    )
     if not 0 <= settings.remove_max <= settings.link_max <= 64:
         raise ValueError(f"Need 0 <= remove_max <= link_max <= 64, got {settings}")
     return settings
@@ -182,7 +192,8 @@ def resolve(
     for idx, img in enumerate(images):  # same filename group -> same set
         link.union(idx, first_in_group.setdefault(img.group, idx))
     for i, j, d in pairs:  # distance <= remove_max is also <= link_max
-        if d <= s.link_max:
+        same_source = images[i].source == images[j].source
+        if d <= s.link_max and (same_source or s.link_across_sources):
             link.union(i, j)
     group = [""] * len(images)
     for members in link.sets().values():
@@ -203,6 +214,7 @@ def summarize(images: list[PoolImage], result: DedupResult, s: DedupSettings) ->
     return {
         "remove_max": s.remove_max,
         "link_max": s.link_max,
+        "link_across_sources": s.link_across_sources,
         "removed_per_source": dict(Counter(images[i].source for i in result.removed)),
         "removed_total": len(result.removed),
         "kept_total": len(kept),

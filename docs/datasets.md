@@ -235,3 +235,26 @@ matches at ≤ 8 with unrelated file names (likely false positives).
 
 Within-set duplicates (esp. GNSoft2's video frames) will lower this in Week 2. The
 plan's 2,000–4,000 target is likely met, so SAM conversion of dataset 1 stays shelved.
+
+## Merge and de-duplication (Week 2, 2026-11-25)
+
+Rules in `configs/merge.yaml`; scripts `training/scripts/merge_datasets.py` (curated
+pool `data/curated-v1/`) and `training/scripts/dedup.py` (`dedup.csv` in the pool).
+
+| Source | Originals | Removed by merge rules | Curated | Duplicates removed | Kept |
+|---|---|---|---|---|---|
+| 1. Potholes and Roads | 1,355 | 451 mask-less pothole, 1 no road | 903 | 26 | 877 |
+| 2. road segmentation | 916 | 30 `DJI_*` | 886 | 7 | 879 |
+| 4. GNSoft2 | 1,990 | 0 (deleted 4,756 vehicle, 443 sewer, 398 manhole labels) | 1,990 | 601 | 1,389 |
+| **Total** | **4,261** | | **3,779** | **634** | **3,145** |
+
+- **Duplicates:** dHash Hamming distance ≤ 4 (gallery in `outputs/dedup/`: pairs at
+  0–4 are the same moment of a video). The kept copy prefers real road labels, then
+  more potholes. One cross-set duplicate: the same stock photo in sets 1 and 2.
+- **Groups for the split:** file-name video patterns, plus near-duplicate links at
+  distance ≤ 6 **within one dataset only**. Linking at ≤ 8 chained 922 images into one
+  group and ≤ 10 chained 1,450; cross-set matches at 5–6 were all different roads
+  (checked by eye), yet each glued two video groups together. Result: 1,491 groups,
+  largest 132 images, every group from a single dataset.
+- **Class balance (curated pool):** road covers 47% of a real-road image on average,
+  potholes 2.2% (median per source 0.1–0.35%); 261 images have no pothole.

@@ -71,10 +71,19 @@ def test_resolve_removes_duplicates_and_links_groups() -> None:
     ]
     pairs = [(0, 1, 2), (1, 2, 8), (0, 5, 30)]
     result = resolve(images, pairs, DedupSettings(remove_max=4, link_max=10))
-    assert result.removed == {0: 1}
-    assert result.group[1] == result.group[2] == result.group[0]
+    assert result.removed == {0: 1}  # removal works across sources
+    assert result.group[1] == result.group[2]
     assert result.group[3] == result.group[4] == "pr:vid"
     assert result.group[5] == "pr:f"
+
+
+def test_resolve_links_across_sources_only_when_enabled() -> None:
+    images = [_img("pr_a", "pr:a"), _img("gn_b", "gn:b")]
+    pairs = [(0, 1, 6)]
+    apart = resolve(images, pairs, DedupSettings(4, 6))
+    assert apart.group == ["pr:a", "gn:b"]
+    joined = resolve(images, pairs, DedupSettings(4, 6, link_across_sources=True))
+    assert joined.group == ["gn:b", "gn:b"]
 
 
 def test_load_settings_rejects_bad_order(tmp_path: Path) -> None:

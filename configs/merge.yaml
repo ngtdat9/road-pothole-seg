@@ -12,11 +12,12 @@ classes: [road, pothole]          # output class ids: road = 0, pothole = 1
 box_dup_iou: 0.5
 
 # Near-duplicate handling (training/scripts/dedup.py), dHash Hamming distance 0-64.
-# PROVISIONAL until the gallery (outputs/dedup/) has been reviewed by eye.
+# Chosen 2026-11-25 from the gallery (outputs/dedup/) and group-size check.
 dedup:
   remove_max: 4      # <= this: the same picture -> keep one copy
   link_max: 6        # <= this: the same scene/video -> same group, same split
                      # (8 chains 922 images into one group, 10 chains 1,450)
+  link_across_sources: false  # cross-set matches at 5-6 were all false (checked by eye)
 
 sources:
   - slug: potholes-and-roads-instance-segmentation-nga49-v1
