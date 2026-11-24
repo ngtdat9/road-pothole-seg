@@ -126,7 +126,7 @@ def results_row(summary: dict[str, Any]) -> str:
 
     cfg = summary["config"]
     return (
-        f"| {summary['date']} | {summary['profile']} | {Path(cfg['model']).stem} | "
+        f"| {summary['date']} | {summary['name']} | {Path(cfg['model']).stem} | "
         f"{cfg['data']['train']} | {cfg['epochs']} | {cfg['imgsz']} | "
         f"{fmt('pothole', 'map50')} | {fmt('pothole', 'map50_95')} | "
         f"{fmt('road', 'map50')} | {fmt('road', 'map50_95')} | {summary['commit']} | |"
