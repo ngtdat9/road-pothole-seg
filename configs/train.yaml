@@ -1,0 +1,34 @@
+# Training profiles for training/scripts/train.py (runs on Colab only).
+# A run = defaults + one profile. Every key except `model`, `data` and `notes` is
+# passed to Ultralytics' model.train() unchanged.
+
+defaults:
+  model: yolo26n-seg.pt          # COCO-pretrained nano segmentation weights
+  data:                          # image lists inside the unzipped dataset folder
+    train: train.txt
+    val: val.txt
+  epochs: 100
+  imgsz: 640
+  batch: 16
+  patience: 30                   # stop early after 30 epochs without val improvement
+  seed: 0
+  deterministic: true
+  workers: 4
+  # Augmentation: Ultralytics defaults (mosaic, HSV colour, scale, translate) except:
+  fliplr: 0.5                    # left-right mirror is a valid road
+  flipud: 0.0                    # roads are never upside down (checked by train.py)
+
+profiles:
+  sanity:
+    notes: 5-epoch check that data, labels and Drive saving work end to end
+    epochs: 5
+
+  teacher:
+    notes: road teacher for pseudo-labelling; real-road images only
+    data:
+      train: train_real_road.txt
+      val: val_real_road.txt
+    epochs: 30
+
+  baseline:
+    notes: Week 2 nano baseline

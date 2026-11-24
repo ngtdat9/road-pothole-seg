@@ -22,6 +22,7 @@ dependencies = [
 [project.optional-dependencies]
 demo = ["pyyaml>=6"]   # apps/ only; the package itself never reads YAML
 dev = ["pytest>=8", "ruff>=0.6", "pyyaml>=6"]
+train = ["ultralytics==8.4.211", "pyyaml>=6"]  # Colab only; pinned for reproducible runs
 
 [tool.setuptools.packages.find]
 include = ["road_pothole_seg*"]
