@@ -258,3 +258,19 @@ pool `data/curated-v1/`) and `training/scripts/dedup.py` (`dedup.csv` in the poo
   largest 132 images, every group from a single dataset.
 - **Class balance (curated pool):** road covers 47% of a real-road image on average,
   potholes 2.2% (median per source 0.1–0.35%); 261 images have no pothole.
+
+## Split `merged-v1-base` (Week 2, 2026-11-25)
+
+`training/scripts/split_dataset.py`, seed 0, 70/15/15 per source; whole groups only
+(no group in two splits — checked by the script). Output `data/merged-v1-base/`
+(+ `merged-v1-base.zip`, 214 MB, for Drive).
+
+| Split | Images | Share | Real-road images | Potholes | PR / RS / GN images |
+|---|---|---|---|---|---|
+| train | 2,199 | 69.9% | 1,228 | 3,257 | 613 / 615 / 971 |
+| val | 473 | 15.0% | 264 | 705 | 132 / 132 / 209 |
+| test | 473 | 15.0% | 264 | 689 | 132 / 132 / 209 |
+
+PR = Potholes and Roads, RS = road segmentation, GN = GNSoft2. GN images have no
+road labels in this base set: road metrics use `*_real_road.txt` only, and GN
+train/val get pseudo road in `merged-v1`. Test images never get pseudo labels.

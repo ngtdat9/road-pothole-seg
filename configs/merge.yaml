@@ -55,3 +55,10 @@ sources:
       - '^(Yuseonggu_\d{8})'
       - '^(ys)_\d+'
       - '^(KakaoTalk_\d{8}_\d{9})'
+
+# Grouped split (training/scripts/split_dataset.py): each source is split on its own,
+# whole groups (video + near-duplicate links from dedup.csv) go to one split.
+split:
+  out_dir: data/merged-v1-base
+  ratios: {train: 0.70, val: 0.15, test: 0.15}
+  seed: 0
