@@ -19,3 +19,6 @@ datasets/
 
 # demo outputs
 outputs/
+
+# Google Drive for desktop upload scratch
+.tmp.driveupload/

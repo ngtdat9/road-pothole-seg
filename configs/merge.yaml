@@ -62,3 +62,16 @@ split:
   out_dir: data/merged-v1-base
   ratios: {train: 0.70, val: 0.15, test: 0.15}
   seed: 0
+
+# Pseudo road labels for pothole-only images (training/scripts/pseudo_label.py).
+# Only train and val images of real_road: false sources; test is never touched.
+pseudo_road:
+  base_dir: data/merged-v1-base   # split without pseudo road
+  out_dir: data/merged-v1         # base + pseudo road lines, minus rejected images
+  review_csv: docs/pseudo_review.csv  # by-eye decisions (keep = 0 drops the image)
+  imgsz: 640                      # teacher's training size
+  conf: 0.5                       # keep road predictions at or above this confidence
+  min_area_frac: 0.01             # drop road pieces smaller than 1% of the image
+  min_pothole_cover: 0.5          # flag images where road covers < 50% of pothole area
+  review_n: 50                    # images in the by-eye review (all flagged + random)
+  seed: 0
