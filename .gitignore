@@ -22,3 +22,4 @@ outputs/
 
 # Google Drive for desktop upload scratch
 .tmp.driveupload/
+.tmp.drivedownload/
