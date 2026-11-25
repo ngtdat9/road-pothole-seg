@@ -1,0 +1,39 @@
+{
+  "date": "2026-11-25",
+  "profile": "sanity",
+  "name": "sanity",
+  "commit": "2e77d2a",
+  "ultralytics": "8.4.211",
+  "config": {
+    "model": "yolo26n-seg.pt",
+    "data": {
+      "train": "train.txt",
+      "val": "val.txt"
+    },
+    "epochs": 5,
+    "imgsz": 640,
+    "batch": 16,
+    "patience": 30,
+    "seed": 0,
+    "deterministic": true,
+    "workers": 2,
+    "cache": "disk",
+    "fliplr": 0.5,
+    "flipud": 0.0,
+    "notes": "5-epoch check that data, labels and Drive saving work end to end"
+  },
+  "metrics": {
+    "pothole": {
+      "map50": 0.6529,
+      "map50_95": 0.3464
+    },
+    "road": {
+      "map50": 0.9458,
+      "map50_95": 0.7023
+    }
+  },
+  "metric_sources": {
+    "pothole": "val.txt",
+    "road": "val_real_road.txt"
+  }
+}
