@@ -74,11 +74,12 @@ pseudo_road:
   imgsz: 640                      # teacher's training size
   conf: 0.5                       # keep road predictions at or above this confidence
   min_area_frac: 0.01             # drop road pieces smaller than 1% of the image
-  # Per pothole label, cover = share of its area inside the pseudo road.
-  offroad_max_cover: 0.2          # cover below this ...
-  offroad_min_area: 0.01          # ... and >= 1% of the image: off-road label (GNSoft2
+  # Per pothole label, cover = share of a thin ring just outside it that is road
+  # (the teacher draws road around potholes; a real pothole is surrounded by road).
+  offroad_max_cover: 0.5          # ring under 50% road ...
+  offroad_min_area: 0.002         # ... and >= 0.2% of the image: off-road label (GNSoft2
                                   # marks some vehicles as potholes) -> dropped
-  min_pothole_cover: 0.5          # flag an image when a real pothole is under half on road
-  flag_min_area: 0.002            # ... ignoring tiny, distant potholes
+  fill_close_frac: 0.01           # closing kernel (share of image side) when filling
+                                  # kept potholes into the road, like hand-labelled road
   review_n: 50                    # images in the by-eye review (all flagged + random)
   seed: 0

@@ -16,10 +16,13 @@ Steps, run in order:
   build   (Mac)   merged-v1 = merged-v1-base + pseudo road lines, minus rejected images
                   and dropped pothole labels. `--zip` writes merged-v1.zip for Drive.
 
-Per pothole label, `cover` = share of its area inside the pseudo road.
+Per pothole label, `cover` = share of a thin ring just outside the pothole that is
+road. (The teacher draws road AROUND potholes, so the area under a pothole is never
+road; a real pothole is still surrounded by road, a vehicle is not.)
 - Off-road (dropped): cover < offroad_max_cover and area >= offroad_min_area.
-- Flagged image: no road, or a pothole of area >= flag_min_area with
-  cover < min_pothole_cover that is not off-road (the road may have missed it).
+- Flagged image: no road, or an off-road label.
+- Hand-labelled road covers its potholes, so `build` fills every kept on-road pothole
+  into the pseudo road (union, then a small closing) to follow the same convention.
 Settings: `pseudo_road` in configs/merge.yaml.
 
 Usage:
@@ -76,10 +79,9 @@ class PseudoSettings:
     imgsz: int
     conf: float
     min_area_frac: float
-    min_pothole_cover: float
-    flag_min_area: float
     offroad_max_cover: float
     offroad_min_area: float
+    fill_close_frac: float
     review_n: int
     seed: int
 
@@ -111,10 +113,9 @@ def load_settings(config_path: Path) -> PseudoSettings:
         imgsz=int(raw["imgsz"]),
         conf=float(raw["conf"]),
         min_area_frac=float(raw["min_area_frac"]),
-        min_pothole_cover=float(raw["min_pothole_cover"]),
-        flag_min_area=float(raw["flag_min_area"]),
         offroad_max_cover=float(raw["offroad_max_cover"]),
         offroad_min_area=float(raw["offroad_min_area"]),
+        fill_close_frac=float(raw["fill_close_frac"]),
         review_n=int(raw["review_n"]),
         seed=int(raw["seed"]),
     )
@@ -274,33 +275,61 @@ def _raster(polygons: list[np.ndarray], size: int = COVER_GRID) -> np.ndarray:
     return mask.astype(bool)
 
 
-def pothole_cover(road: list[np.ndarray], potholes: list[np.ndarray]) -> float | None:
-    """Share of pothole area inside the road; None when there is no pothole."""
-    if not potholes:
-        return None
-    p = _raster(potholes)
-    n = int(p.sum())
-    return float((p & _raster(road)).sum() / n) if n else None
+def ring_cover(road_mask: np.ndarray, polygon: np.ndarray) -> float:
+    """Share of a ring just outside `polygon` that is road (ring width ~1/4 of its size)."""
+    hole = _raster([polygon])
+    n = int(hole.sum())
+    if not n:
+        return 1.0
+    k = max(3, int(0.25 * np.sqrt(n)))
+    grown = cv2.dilate(hole.astype(np.uint8), np.ones((2 * k + 1, 2 * k + 1), np.uint8))
+    ring = grown.astype(bool) & ~hole
+    return float((ring & road_mask).sum() / ring.sum()) if ring.any() else 1.0
 
 
 def check_holes(
     name: str, road: list[np.ndarray], label_file: Path, pothole_id: int
 ) -> list[HoleCheck]:
-    """Cover of every pothole polygon in one label file."""
+    """Ring cover of every pothole polygon in one label file."""
     road_mask = _raster(road)
     checks = []
     for line, inst in enumerate(parse_label_file(label_file)):
         if inst.class_id != pothole_id or inst.box_only:
             continue
-        hole = _raster([inst.polygon])
-        n = int(hole.sum())
-        cover = float((hole & road_mask).sum() / n) if n else 1.0
+        cover = ring_cover(road_mask, inst.polygon)
         checks.append(HoleCheck(name, line, polygon_area(inst.polygon), cover, inst.polygon))
     return checks
 
 
 def is_offroad(h: HoleCheck, s: PseudoSettings) -> bool:
     return h.cover < s.offroad_max_cover and h.area >= s.offroad_min_area
+
+
+def fill_road(
+    road: list[np.ndarray], holes: list[np.ndarray], shape: tuple[int, int], s: PseudoSettings
+) -> list[np.ndarray]:
+    """Road polygons with the given potholes filled in, at image size `shape` (h, w)."""
+    if not road:
+        return []
+    h, w = shape
+    mask = np.zeros((h, w), np.uint8)
+    for poly in road + holes:
+        cv2.fillPoly(mask, [np.round(poly * [w, h]).astype(np.int32)], 1)
+    k = max(3, round(s.fill_close_frac * max(h, w))) | 1
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((k, k), np.uint8))
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    out = []
+    for contour in contours:
+        pts = cv2.approxPolyDP(contour, 1.0, True).reshape(-1, 2).astype(float)
+        poly = pts / [w, h]
+        if len(pts) >= 3 and polygon_area(poly) >= s.min_area_frac:
+            out.append(poly)
+    return out
+
+
+def on_road_holes(checks: list[HoleCheck], s: PseudoSettings, skip: set[int]) -> list[np.ndarray]:
+    """Kept potholes that lie on the road: these get filled into the road."""
+    return [h.polygon for h in checks if h.line not in skip and h.cover >= s.offroad_max_cover]
 
 
 def analyse(local_dir: Path, s: PseudoSettings) -> tuple[list[dict], dict[str, list[HoleCheck]]]:
@@ -310,17 +339,16 @@ def analyse(local_dir: Path, s: PseudoSettings) -> tuple[list[dict], dict[str, l
     holes: dict[str, list[HoleCheck]] = {}
     for row in rows:
         name = row["name"]
-        road = [i.polygon for i in parse_label_file(local_dir / "labels" / f"{name}.txt")]
+        road = _road(local_dir, name)
         checks = check_holes(name, road, s.base_dir / "labels" / f"{name}.txt", pothole_id)
         holes[name] = checks
-        missed = [
-            h
-            for h in checks
-            if h.area >= s.flag_min_area and h.cover < s.min_pothole_cover and not is_offroad(h, s)
-        ]
-        row["flagged"] = int(not road or bool(missed))
+        row["flagged"] = int(not road or any(is_offroad(h, s) for h in checks))
         row["min_cover"] = round(min((h.cover for h in checks), default=1.0), 3)
     return rows, holes
+
+
+def _road(local_dir: Path, name: str) -> list[np.ndarray]:
+    return [i.polygon for i in parse_label_file(local_dir / "labels" / f"{name}.txt")]
 
 
 # ---------------------------------------------------------------- review (Mac)
@@ -374,10 +402,6 @@ def write_sheets(tiles: list[np.ndarray], out_dir: Path, prefix: str) -> list[Pa
     return paths
 
 
-def _road(local_dir: Path, name: str) -> list[np.ndarray]:
-    return [i.polygon for i in parse_label_file(local_dir / "labels" / f"{name}.txt")]
-
-
 def review(local_dir: Path, s: PseudoSettings, out_dir: Path, force: bool = False) -> dict:
     """Draw review and off-road sheets; write both decision CSVs (all accepted)."""
     for path in (s.review_csv, s.offroad_csv):
@@ -397,7 +421,8 @@ def review(local_dir: Path, s: PseudoSettings, out_dir: Path, force: bool = Fals
             for h in holes[row["name"]]
         ]
         caption = f"#{idx} cover {row['min_cover']} conf {row['mean_conf'] or '-'}"
-        road = _road(local_dir, row["name"])
+        kept = on_road_holes(holes[row["name"]], s, set())
+        road = fill_road(_road(local_dir, row["name"]), kept, image.shape[:2], s)
         tiles.append(draw_tile(image, road, outlines, caption, bool(row["flagged"])))
         records.append({**row, "idx": idx, "keep": 1})
     write_sheets(tiles, out_dir, "review")
@@ -409,7 +434,7 @@ def review(local_dir: Path, s: PseudoSettings, out_dir: Path, force: bool = Fals
     tiles, off_records = [], []
     for idx, h in enumerate(offroad, start=1):
         image = cv2.imread(str(s.base_dir / "images" / by_name[h.name]["file"]))
-        caption = f"#{idx} cover {h.cover:.2f} area {h.area:.3f}"
+        caption = f"#{idx} ring {h.cover:.2f} area {h.area:.3f}"
         road = _road(local_dir, h.name)
         tiles.append(draw_tile(image, road, [(h.polygon, OFFROAD_COLOUR)], caption, False))
         off_records.append(
@@ -444,7 +469,7 @@ def build(local_dir: Path, s: PseudoSettings, make_zip: bool = False) -> dict:
     for path in (s.review_csv, s.offroad_csv):
         if not path.exists():
             raise SystemExit(f"{path} not found: run `review` and check the sheets first")
-    road_id, _ = class_ids(s.base_dir)
+    road_id, pothole_id = class_ids(s.base_dir)
     rows = read_csv(local_dir / PSEUDO_CSV)
     rejected = {r["name"] for r in read_csv(s.review_csv) if r["keep"].strip() == "0"}
     drop_lines: dict[str, set[int]] = {}
@@ -472,8 +497,12 @@ def build(local_dir: Path, s: PseudoSettings, make_zip: bool = False) -> dict:
         skip = drop_lines.get(name, set())
         dropped += len(skip)
         kept = [ln for i, ln in enumerate(lines) if i not in skip]
-        road_lines = (local_dir / "labels" / f"{name}.txt").read_text().splitlines()
-        label.write_text("".join(f"{ln}\n" for ln in kept + road_lines if ln.strip()))
+        road = _road(local_dir, name)
+        checks = check_holes(name, road, s.base_dir / "labels" / f"{name}.txt", pothole_id)
+        shape = cv2.imread(str(out / "images" / row["file"])).shape[:2]
+        road = fill_road(road, on_road_holes(checks, s, skip), shape, s)
+        road_lines = format_label([(road_id, p) for p in road]).splitlines()
+        label.write_text("".join(f"{ln}\n" for ln in kept + road_lines))
 
     for list_file in out.glob("*.txt"):
         kept = [ln for ln in list_file.read_text().split() if Path(ln).stem not in rejected]

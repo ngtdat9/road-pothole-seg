@@ -11,16 +11,18 @@ import yaml
 from training.scripts.pseudo_label import (
     REPO_ROOT,
     PseudoSettings,
+    _raster,
     analyse,
     build,
     choose_review,
     fetch,
+    fill_road,
     load_settings,
     load_targets,
     pack,
-    pothole_cover,
     predict,
     review,
+    ring_cover,
     road_polygons,
 )
 
@@ -41,10 +43,9 @@ def _settings(tmp_path: Path, base: Path) -> PseudoSettings:
         imgsz=640,
         conf=0.5,
         min_area_frac=0.01,
-        min_pothole_cover=0.5,
-        flag_min_area=0.002,
-        offroad_max_cover=0.2,
-        offroad_min_area=0.01,
+        offroad_max_cover=0.5,
+        offroad_min_area=0.002,
+        fill_close_frac=0.01,
         review_n=3,
         seed=0,
     )
@@ -80,8 +81,8 @@ def base(tmp_path: Path) -> Path:
 
 
 class FakeTeacher:
-    """gn_b: road on the lower half. gn_c: road only from y = 0.82 (cuts the pothole).
-    gn_d: no road at all."""
+    """Road on the lower half, drawn AROUND the pothole like the real teacher (a notch
+    from the bottom edge up to the pothole's top). gn_d: no road at all."""
 
     def __init__(self) -> None:
         self.seen: list[str] = []
@@ -92,7 +93,8 @@ class FakeTeacher:
         if stem == "gn_d":
             return [SimpleNamespace(masks=None, boxes=None)]
         mask = np.zeros((H, W), np.float32)
-        mask[round(H * (0.82 if stem == "gn_c" else 0.5)) :] = 1
+        mask[H // 2 :] = 1
+        mask[round(0.7 * H) :, round(0.4 * W) : round(0.6 * W)] = 0  # pothole left out
         masks = SimpleNamespace(data=mask[None])
         boxes = SimpleNamespace(cls=np.array([0.0]), conf=np.array([0.9]))
         return [SimpleNamespace(masks=masks, boxes=boxes)]
@@ -136,12 +138,25 @@ def test_road_polygons_filter_class_conf_and_area(tmp_path: Path, base: Path) ->
     assert road_polygons(masks[:1], np.array([0]), np.array([0.3]), 0, s) == []
 
 
-def test_pothole_cover() -> None:
-    lower = [np.array([[0, 0.5], [1, 0.5], [1, 1], [0, 1]])]
-    hole = [np.array([[0.4, 0.7], [0.6, 0.7], [0.6, 0.9], [0.4, 0.9]])]
-    assert pothole_cover(lower, hole) == pytest.approx(1.0)
-    assert pothole_cover([], hole) == 0.0
-    assert pothole_cover(lower, []) is None
+def _square(x0: float, y0: float, x1: float, y1: float) -> np.ndarray:
+    return np.array([[x0, y0], [x1, y0], [x1, y1], [x0, y1]])
+
+
+def test_ring_cover_sees_road_around_a_pothole_gap() -> None:
+    # Road everywhere below 0.5 except a gap where the pothole is: the pothole's own
+    # area is not road, but the ring around it is.
+    road = _raster([_square(0, 0.5, 1, 1)]) & ~_raster([_square(0.4, 0.7, 0.6, 0.9)])
+    assert ring_cover(road, _square(0.4, 0.7, 0.6, 0.9)) > 0.9
+    assert ring_cover(road, _square(0.1, 0.1, 0.3, 0.3)) == 0.0  # up in the scene
+
+
+def test_fill_road_covers_kept_potholes(tmp_path: Path, base: Path) -> None:
+    s = _settings(tmp_path, base)
+    road = [np.array([[0, 0.5], [1, 0.5], [1, 1], [0.6, 1], [0.6, 0.7], [0.4, 0.7],
+                      [0.4, 1], [0, 1]])]  # fmt: skip
+    filled = fill_road(road, [_square(0.4, 0.7, 0.6, 0.9)], (100, 100), s)
+    assert _raster(filled)[round(0.8 * 512), round(0.5 * 512)]  # pothole centre is road
+    assert fill_road([], [_square(0.4, 0.7, 0.6, 0.9)], (100, 100), s) == []
 
 
 def test_fetch_rejects_incomplete_zip(tmp_path: Path, base: Path, local: Path) -> None:
@@ -155,9 +170,10 @@ def test_fetch_rejects_incomplete_zip(tmp_path: Path, base: Path, local: Path) -
 def test_analyse_flags_and_offroad(tmp_path: Path, base: Path, local: Path) -> None:
     rows, holes = analyse(local, _settings(tmp_path, base))
     flags = {r["name"]: r["flagged"] for r in rows}
-    # gn_b: the vehicle is off-road (not a flag); gn_c: road cuts a real pothole; gn_d: no road.
-    assert flags == {"gn_b": 0, "gn_c": 1, "gn_d": 1}
-    assert [round(h.cover, 1) for h in holes["gn_b"]] == [1.0, 0.0]
+    # gn_b: a vehicle labelled as pothole is off-road; gn_c: fine; gn_d: no road.
+    assert flags == {"gn_b": 1, "gn_c": 0, "gn_d": 1}
+    real, vehicle = holes["gn_b"]
+    assert real.cover > 0.5 and vehicle.cover == 0.0
 
 
 def test_choose_review_takes_all_flagged_then_samples() -> None:
@@ -186,6 +202,8 @@ def test_review_then_build(tmp_path: Path, base: Path, local: Path) -> None:
     assert result["rejected"] == ["gn_d"] and result["offroad_pothole_labels_dropped"] == 1
     lines = (out / "labels" / "gn_b.txt").read_text().splitlines()
     assert lines[0] == POTHOLE.strip() and len(lines) == 2 and lines[1].startswith("0 ")
+    road = np.array(lines[1].split()[1:], float).reshape(-1, 2)
+    assert _raster([road])[round(0.8 * 512), round(0.5 * 512)]  # pothole filled into road
     assert "gn_d" not in (out / "val.txt").read_text()
     assert not (out / "images" / "gn_d.jpg").exists()
     assert (out / "labels" / "gn_t.txt").read_text() == POTHOLE  # test untouched
@@ -201,4 +219,4 @@ def test_build_needs_review(tmp_path: Path, base: Path, local: Path) -> None:
 def test_repo_config_loads() -> None:
     s = load_settings(REPO_ROOT / "configs" / "merge.yaml")
     assert s.out_dir.name == "merged-v1" and 0 < s.conf < 1
-    assert s.offroad_max_cover < s.min_pothole_cover
+    assert 0 < s.offroad_max_cover < 1 and s.fill_close_frac < 0.05
