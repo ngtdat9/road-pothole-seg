@@ -13,7 +13,12 @@ defaults:
   patience: 30                   # stop early after 30 epochs without val improvement
   seed: 0
   deterministic: true
-  workers: 4
+  workers: 2                     # Colab has 2 CPU cores; Ultralytics caps workers there anyway
+  # Decode each image once and keep resized uint8 pixels as .npy next to it on
+  # Colab's local disk (~3 GB). Mosaic reads 4 images per sample, so without this
+  # every image is JPEG-decoded ~4x per epoch on the 2 CPU cores. Same pixels as
+  # no cache; "disk" (not "ram") keeps deterministic runs deterministic.
+  cache: disk
   # Augmentation: Ultralytics defaults (mosaic, HSV colour, scale, translate) except:
   fliplr: 0.5                    # left-right mirror is a valid road
   flipud: 0.0                    # roads are never upside down (checked by train.py)

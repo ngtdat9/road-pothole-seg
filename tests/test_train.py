@@ -160,3 +160,5 @@ def test_repo_train_config_is_valid() -> None:
         cfg = load_profile(REPO_ROOT / "configs" / "train.yaml", profile)
         assert cfg["flipud"] == 0
         assert all("test" not in v for v in cfg["data"].values())
+        # RAM caching can break deterministic runs; decode-once disk cache is the choice.
+        assert cfg["cache"] == "disk"
