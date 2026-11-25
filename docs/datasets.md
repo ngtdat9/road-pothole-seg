@@ -274,3 +274,40 @@ pool `data/curated-v1/`) and `training/scripts/dedup.py` (`dedup.csv` in the poo
 PR = Potholes and Roads, RS = road segmentation, GN = GNSoft2. GN images have no
 road labels in this base set: road metrics use `*_real_road.txt` only, and GN
 train/val get pseudo road in `merged-v1`. Test images never get pseudo labels.
+
+## Pseudo road and `merged-v1` (Week 2, 2026-11-25)
+
+`training/scripts/pseudo_label.py`, settings `pseudo_road` in `configs/merge.yaml`.
+Teacher: run `teacher` (YOLO26n-seg trained on real-road images only; road mask
+mAP50-95 0.785 on `val_real_road.txt`). Applied to GNSoft2 **train and val** images
+only (971 + 209); test images are never read.
+
+- **Road polygons:** road masks at confidence ≥ 0.5, one polygon per outer contour,
+  pieces under 1% of the image dropped. Median road share 69%, median confidence 0.91.
+- **Same convention as hand-labelled road:** in the real-road sets the road polygon
+  covers its potholes (100% of the area for ≥ 90% of 1,906 potholes), but the teacher
+  draws road around them. `build` therefore fills every kept on-road pothole into the
+  pseudo road (union + closing at 1% of the image side). After the fill, GNSoft2
+  potholes are 100% inside road at the 5th percentile.
+- **Off-road "pothole" labels:** GNSoft2 marks some vehicles as `pothole` (in the
+  source label files, not a mapping error). Check: share of a thin ring around each
+  pothole that is pseudo road; < 50% and ≥ 0.2% of the image = off-road. 14 labels in
+  7 images; by eye 13 were cars, trucks, a forklift, a motorbike and a roadside barrier
+  (dropped), 1 a real broken road edge (kept). Decisions: `docs/pseudo_offroad.csv`.
+- **Review by eye:** 50 images (all 12 flagged + 38 random), decisions in
+  `docs/pseudo_review.csv`. Rejected 5 images where the teacher found no road: 3
+  close-ups of one pothole on a crosswalk (`gn_frame_2_0085/0105/0109`) and 2 foggy
+  frames (`gn_ys_008/009`); a visible road may not stay unlabelled, so they are dropped.
+  The road on the other reviewed images was correct.
+- **Known limit:** GNSoft2 *test* images get no road, so the off-road check cannot
+  run there; a few vehicle "potholes" (about 1% of labels on train/val) may remain in
+  test and slightly lower test pothole scores.
+
+| Split | Images | Pseudo-road images | Real-road images |
+|---|---|---|---|
+| train | 2,196 | 968 | 1,228 |
+| val | 471 | 207 | 264 |
+| test | 473 | 0 | 264 |
+
+Output `data/merged-v1/` + `merged-v1.zip` (224 MB) on Drive (`road-pothole-seg/data/`).
+Box-only label lines: 0. Road metrics still come from `*_real_road.txt` only.
