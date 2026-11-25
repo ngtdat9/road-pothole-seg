@@ -67,11 +67,18 @@ split:
 # Only train and val images of real_road: false sources; test is never touched.
 pseudo_road:
   base_dir: data/merged-v1-base   # split without pseudo road
-  out_dir: data/merged-v1         # base + pseudo road lines, minus rejected images
-  review_csv: docs/pseudo_review.csv  # by-eye decisions (keep = 0 drops the image)
+  out_dir: data/merged-v1         # base + pseudo road, minus rejected images/labels
+  local_dir: data/pseudo/teacher  # local copy of the teacher's labels (from Drive zip)
+  review_csv: docs/pseudo_review.csv    # keep = 0 drops the image (bad road)
+  offroad_csv: docs/pseudo_offroad.csv  # drop = 1 removes that pothole label
   imgsz: 640                      # teacher's training size
   conf: 0.5                       # keep road predictions at or above this confidence
   min_area_frac: 0.01             # drop road pieces smaller than 1% of the image
-  min_pothole_cover: 0.5          # flag images where road covers < 50% of pothole area
+  # Per pothole label, cover = share of its area inside the pseudo road.
+  offroad_max_cover: 0.2          # cover below this ...
+  offroad_min_area: 0.01          # ... and >= 1% of the image: off-road label (GNSoft2
+                                  # marks some vehicles as potholes) -> dropped
+  min_pothole_cover: 0.5          # flag an image when a real pothole is under half on road
+  flag_min_area: 0.002            # ... ignoring tiny, distant potholes
   review_n: 50                    # images in the by-eye review (all flagged + random)
   seed: 0

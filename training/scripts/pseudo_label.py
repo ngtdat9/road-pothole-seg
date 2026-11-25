@@ -1,19 +1,25 @@
 """Pseudo-label road on pothole-only images with the road teacher (pipeline stage 3).
 
-Three steps, run in order:
+Steps, run in order:
   predict (Colab) teacher best.pt -> road polygons for the train and val images of
-                  sources without real road labels (split.csv real_road = 0). Writes
-                  <pseudo>/labels/<name>.txt (road lines only) and <pseudo>/pseudo_road.csv.
+                  sources without real road labels (split.csv real_road = 0). Labels are
+                  written on Colab's local disk, then ONE labels.zip plus pseudo_road.csv
+                  go to --out on Drive (Drive syncs thousands of small files badly).
                   Test images are never read.
-  review  (Mac)   contact sheets of `review_n` images (every flagged one plus a seeded
-                  random sample) in outputs/pseudo_review/, and docs/pseudo_review.csv
-                  with a `keep` column (1 = accept). Set keep to 0 for bad pseudo road.
-  build   (Mac)   copies merged-v1-base to merged-v1, appends the pseudo road lines to
-                  the label files and removes images with keep = 0 (a visible road must
-                  never stay unlabelled). `--zip` writes merged-v1.zip for Drive.
+  review  (Mac)   fetches the zip from the synced Drive into `local_dir`, checks every
+                  pothole label against the pseudo road, and writes:
+                  - review sheets (every flagged image + a seeded random sample) and
+                    docs/pseudo_review.csv with keep = 1; set keep = 0 for bad road,
+                  - off-road sheets and docs/pseudo_offroad.csv with drop = 1 for pothole
+                    labels that lie off the road (GNSoft2 labels some vehicles as
+                    potholes); set drop = 0 to keep one.
+  build   (Mac)   merged-v1 = merged-v1-base + pseudo road lines, minus rejected images
+                  and dropped pothole labels. `--zip` writes merged-v1.zip for Drive.
 
-An image is flagged when it gets no road, or when the road covers less than
-`min_pothole_cover` of its pothole area (potholes lie on the road).
+Per pothole label, `cover` = share of its area inside the pseudo road.
+- Off-road (dropped): cover < offroad_max_cover and area >= offroad_min_area.
+- Flagged image: no road, or a pothole of area >= flag_min_area with
+  cover < min_pothole_cover that is not off-road (the road may have missed it).
 Settings: `pseudo_road` in configs/merge.yaml.
 
 Usage:
@@ -30,6 +36,8 @@ import csv
 import json
 import random
 import shutil
+import tempfile
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -44,15 +52,17 @@ from training.scripts.merge_datasets import REPO_ROOT, _resolve, format_label
 SPLITS = ("train", "val", "test")
 PSEUDO_SPLITS = SPLITS[:2]  # never test
 PSEUDO_CSV = "pseudo_road.csv"
-PSEUDO_FIELDS = ["name", "file", "split", "n_road", "road_frac", "mean_conf",
-                 "pothole_cover", "flagged"]  # fmt: skip
-REVIEW_FIELDS = ["idx", "name", "split", "flagged", "pothole_cover", "mean_conf", "keep"]
-COVER_GRID = 256  # raster size for the pothole-on-road check
+LABELS_ZIP = "labels.zip"
+PSEUDO_FIELDS = ["name", "file", "split", "n_road", "road_frac", "mean_conf"]
+REVIEW_FIELDS = ["idx", "name", "split", "flagged", "min_cover", "mean_conf", "keep"]
+OFFROAD_FIELDS = ["idx", "name", "line", "area", "cover", "drop"]
+COVER_GRID = 512  # raster size for the pothole-on-road check
 TILE = 320  # px, each review image is fitted into a TILE x TILE square
 CAPTION_H = 24
 SHEET_COLS, SHEET_ROWS = 5, 2
 ROAD_COLOUR = (80, 200, 80)
 POTHOLE_COLOUR = (40, 40, 230)
+OFFROAD_COLOUR = (230, 40, 230)
 FLAG_COLOUR = (0, 165, 255)
 
 
@@ -60,11 +70,16 @@ FLAG_COLOUR = (0, 165, 255)
 class PseudoSettings:
     base_dir: Path
     out_dir: Path
+    local_dir: Path
     review_csv: Path
+    offroad_csv: Path
     imgsz: int
     conf: float
     min_area_frac: float
     min_pothole_cover: float
+    flag_min_area: float
+    offroad_max_cover: float
+    offroad_min_area: float
     review_n: int
     seed: int
 
@@ -76,17 +91,30 @@ class Target:
     split: str
 
 
+@dataclass
+class HoleCheck:
+    """One pothole label of an image, checked against that image's pseudo road."""
+
+    name: str
+    line: int  # index of the line in the label file
+    area: float
+    cover: float
+    polygon: np.ndarray
+
+
 def load_settings(config_path: Path) -> PseudoSettings:
     with config_path.open() as f:
         raw = yaml.safe_load(f)["pseudo_road"]
+    paths = ("base_dir", "out_dir", "local_dir", "review_csv", "offroad_csv")
     return PseudoSettings(
-        base_dir=_resolve(raw["base_dir"]),
-        out_dir=_resolve(raw["out_dir"]),
-        review_csv=_resolve(raw["review_csv"]),
+        **{k: _resolve(raw[k]) for k in paths},
         imgsz=int(raw["imgsz"]),
         conf=float(raw["conf"]),
         min_area_frac=float(raw["min_area_frac"]),
         min_pothole_cover=float(raw["min_pothole_cover"]),
+        flag_min_area=float(raw["flag_min_area"]),
+        offroad_max_cover=float(raw["offroad_max_cover"]),
+        offroad_min_area=float(raw["offroad_min_area"]),
         review_n=int(raw["review_n"]),
         seed=int(raw["seed"]),
     )
@@ -120,7 +148,20 @@ def load_targets(data_root: Path) -> list[Target]:
     return targets
 
 
-# ---------------------------------------------------------------- predict
+def read_csv(path: Path) -> list[dict[str, str]]:
+    with path.open() as f:
+        return list(csv.DictReader(f))
+
+
+def write_csv(path: Path, fields: list[str], rows: list[dict]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+# ---------------------------------------------------------------- predict (Colab)
 
 
 def road_polygons(
@@ -152,37 +193,16 @@ def road_polygons(
     return out
 
 
-def _raster(polygons: list[np.ndarray], size: int = COVER_GRID) -> np.ndarray:
-    mask = np.zeros((size, size), np.uint8)
-    for poly in polygons:
-        cv2.fillPoly(mask, [np.round(poly * size).astype(np.int32)], 1)
-    return mask.astype(bool)
-
-
-def pothole_cover(road: list[np.ndarray], potholes: list[np.ndarray]) -> float | None:
-    """Share of pothole area inside the road; None when the image has no pothole."""
-    if not potholes:
-        return None
-    p = _raster(potholes)
-    n = int(p.sum())
-    return float((p & _raster(road)).sum() / n) if n else None
-
-
 def _numpy(x: Any) -> np.ndarray:
     return x.cpu().numpy() if hasattr(x, "cpu") else np.asarray(x)
 
 
-def _potholes(label_file: Path, pothole_id: int) -> list[np.ndarray]:
-    instances = parse_label_file(label_file)
-    return [i.polygon for i in instances if i.class_id == pothole_id and not i.box_only]
-
-
 def predict(model: Any, data_root: Path, out_dir: Path, s: PseudoSettings) -> list[dict]:
-    """Run the teacher on every target and write road-only label files plus the CSV.
+    """Run the teacher on every target; write road-only label files and the CSV.
 
     `model` is an Ultralytics YOLO (or a test fake with the same `predict`).
     """
-    road_id, pothole_id = class_ids(data_root)
+    road_id, _ = class_ids(data_root)
     labels_dir = out_dir / "labels"
     if labels_dir.exists():
         shutil.rmtree(labels_dir)
@@ -196,9 +216,8 @@ def predict(model: Any, data_root: Path, out_dir: Path, s: PseudoSettings) -> li
             retina_masks=True,  # masks at the original image size
             verbose=False,
         )[0]
-        if result.masks is None:
-            road = []
-        else:
+        road = []
+        if result.masks is not None:
             road = road_polygons(
                 _numpy(result.masks.data),
                 _numpy(result.boxes.cls),
@@ -207,8 +226,6 @@ def predict(model: Any, data_root: Path, out_dir: Path, s: PseudoSettings) -> li
                 s,
             )
         polys = [p for p, _ in road]
-        cover = pothole_cover(polys, _potholes(data_root / "labels" / f"{t.name}.txt", pothole_id))
-        flagged = not polys or (cover is not None and cover < s.min_pothole_cover)
         (labels_dir / f"{t.name}.txt").write_text(format_label([(road_id, p) for p in polys]))
         rows.append(
             {
@@ -218,49 +235,122 @@ def predict(model: Any, data_root: Path, out_dir: Path, s: PseudoSettings) -> li
                 "n_road": len(polys),
                 "road_frac": round(min(1.0, sum(polygon_area(p) for p in polys)), 4),
                 "mean_conf": round(float(np.mean([c for _, c in road])), 3) if road else "",
-                "pothole_cover": "" if cover is None else round(cover, 3),
-                "flagged": int(flagged),
             }
         )
-    with (out_dir / PSEUDO_CSV).open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=PSEUDO_FIELDS)
-        writer.writeheader()
-        writer.writerows(rows)
+    write_csv(out_dir / PSEUDO_CSV, PSEUDO_FIELDS, rows)
     return rows
 
 
-# ---------------------------------------------------------------- review
+def pack(work_dir: Path, out_dir: Path) -> None:
+    """Copy the CSV and ONE labels.zip from the local work dir to `out_dir` (Drive)."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    shutil.make_archive(str(out_dir / Path(LABELS_ZIP).stem), "zip", root_dir=work_dir / "labels")
+    shutil.copy2(work_dir / PSEUDO_CSV, out_dir / PSEUDO_CSV)
 
 
-def read_csv(path: Path) -> list[dict[str, str]]:
-    with path.open() as f:
-        return list(csv.DictReader(f))
+def fetch(drive_dir: Path, local_dir: Path) -> int:
+    """Unpack <drive_dir>/labels.zip and the CSV into `local_dir`; returns the label count."""
+    if local_dir.exists():
+        shutil.rmtree(local_dir)
+    (local_dir / "labels").mkdir(parents=True)
+    shutil.copy2(drive_dir / PSEUDO_CSV, local_dir / PSEUDO_CSV)
+    with zipfile.ZipFile(drive_dir / LABELS_ZIP) as z:
+        names = [n for n in z.namelist() if n.endswith(".txt") and "/" not in n.strip("/")]
+        for n in names:  # flat .txt files only: never extract paths from the archive
+            (local_dir / "labels" / n).write_bytes(z.read(n))
+    expected = len(read_csv(local_dir / PSEUDO_CSV))
+    if len(names) != expected:
+        raise SystemExit(f"{LABELS_ZIP} has {len(names)} labels, the CSV lists {expected}")
+    return len(names)
 
 
-def choose_review(rows: list[dict[str, str]], n: int, seed: int) -> list[dict[str, str]]:
+# ---------------------------------------------------------------- checks (Mac)
+
+
+def _raster(polygons: list[np.ndarray], size: int = COVER_GRID) -> np.ndarray:
+    mask = np.zeros((size, size), np.uint8)
+    for poly in polygons:
+        cv2.fillPoly(mask, [np.round(poly * size).astype(np.int32)], 1)
+    return mask.astype(bool)
+
+
+def pothole_cover(road: list[np.ndarray], potholes: list[np.ndarray]) -> float | None:
+    """Share of pothole area inside the road; None when there is no pothole."""
+    if not potholes:
+        return None
+    p = _raster(potholes)
+    n = int(p.sum())
+    return float((p & _raster(road)).sum() / n) if n else None
+
+
+def check_holes(
+    name: str, road: list[np.ndarray], label_file: Path, pothole_id: int
+) -> list[HoleCheck]:
+    """Cover of every pothole polygon in one label file."""
+    road_mask = _raster(road)
+    checks = []
+    for line, inst in enumerate(parse_label_file(label_file)):
+        if inst.class_id != pothole_id or inst.box_only:
+            continue
+        hole = _raster([inst.polygon])
+        n = int(hole.sum())
+        cover = float((hole & road_mask).sum() / n) if n else 1.0
+        checks.append(HoleCheck(name, line, polygon_area(inst.polygon), cover, inst.polygon))
+    return checks
+
+
+def is_offroad(h: HoleCheck, s: PseudoSettings) -> bool:
+    return h.cover < s.offroad_max_cover and h.area >= s.offroad_min_area
+
+
+def analyse(local_dir: Path, s: PseudoSettings) -> tuple[list[dict], dict[str, list[HoleCheck]]]:
+    """Pseudo CSV rows with `flagged` and `min_cover` added, and each image's hole checks."""
+    _, pothole_id = class_ids(s.base_dir)
+    rows = read_csv(local_dir / PSEUDO_CSV)
+    holes: dict[str, list[HoleCheck]] = {}
+    for row in rows:
+        name = row["name"]
+        road = [i.polygon for i in parse_label_file(local_dir / "labels" / f"{name}.txt")]
+        checks = check_holes(name, road, s.base_dir / "labels" / f"{name}.txt", pothole_id)
+        holes[name] = checks
+        missed = [
+            h
+            for h in checks
+            if h.area >= s.flag_min_area and h.cover < s.min_pothole_cover and not is_offroad(h, s)
+        ]
+        row["flagged"] = int(not road or bool(missed))
+        row["min_cover"] = round(min((h.cover for h in checks), default=1.0), 3)
+    return rows, holes
+
+
+# ---------------------------------------------------------------- review (Mac)
+
+
+def choose_review(rows: list[dict], n: int, seed: int) -> list[dict]:
     """Every flagged image, topped up to `n` with a seeded random sample of the rest."""
-    flagged = sorted((r for r in rows if r["flagged"] == "1"), key=lambda r: r["name"])
-    rest = sorted((r for r in rows if r["flagged"] != "1"), key=lambda r: r["name"])
+    flagged = sorted((r for r in rows if int(r["flagged"])), key=lambda r: r["name"])
+    rest = sorted((r for r in rows if not int(r["flagged"])), key=lambda r: r["name"])
     k = min(max(0, n - len(flagged)), len(rest))
     return flagged + sorted(random.Random(seed).sample(rest, k), key=lambda r: r["name"])
 
 
-def draw_review(
+def draw_tile(
     image: np.ndarray,
     road: list[np.ndarray],
-    potholes: list[np.ndarray],
+    holes: list[tuple[np.ndarray, tuple[int, int, int]]],
     caption: str,
     flagged: bool,
 ) -> np.ndarray:
-    """Road tinted green, potholes outlined red, fitted into a captioned tile."""
+    """Road tinted green, each hole outlined in its colour, fitted into a captioned tile."""
     h, w = image.shape[:2]
     overlay = image.copy()
     road_px = [np.round(p * [w, h]).astype(np.int32) for p in road]
     cv2.fillPoly(overlay, road_px, ROAD_COLOUR)
     out = cv2.addWeighted(overlay, 0.4, image, 0.6, 0)
     cv2.polylines(out, road_px, True, ROAD_COLOUR, max(1, w // 320))
-    hole_px = [np.round(p * [w, h]).astype(np.int32) for p in potholes]
-    cv2.polylines(out, hole_px, True, POTHOLE_COLOUR, max(2, w // 200))
+    for poly, colour in holes:
+        px = np.round(poly * [w, h]).astype(np.int32)
+        cv2.polylines(out, [px], True, colour, max(2, w // 200))
     r = TILE / max(h, w)
     small = cv2.resize(out, (max(1, round(w * r)), max(1, round(h * r))))
     tile = np.full((TILE + CAPTION_H, TILE, 3), 255, np.uint8)
@@ -271,67 +361,104 @@ def draw_review(
     return tile
 
 
-def write_sheets(tiles: list[np.ndarray], out_dir: Path) -> list[Path]:
+def write_sheets(tiles: list[np.ndarray], out_dir: Path, prefix: str) -> list[Path]:
     per_sheet = SHEET_COLS * SHEET_ROWS
-    blank = np.full_like(tiles[0], 255) if tiles else None
     paths = []
     for start in range(0, len(tiles), per_sheet):
         chunk = tiles[start : start + per_sheet]
-        chunk += [blank] * (per_sheet - len(chunk))
+        chunk += [np.full_like(tiles[0], 255)] * (per_sheet - len(chunk))
         rows = [np.hstack(chunk[r * SHEET_COLS : (r + 1) * SHEET_COLS]) for r in range(SHEET_ROWS)]
-        path = out_dir / f"sheet_{start // per_sheet + 1:02d}.jpg"
+        path = out_dir / f"{prefix}_{start // per_sheet + 1:02d}.jpg"
         cv2.imwrite(str(path), np.vstack(rows))
         paths.append(path)
     return paths
 
 
-def review(
-    pseudo_dir: Path, s: PseudoSettings, out_dir: Path, force: bool = False
-) -> list[dict[str, str]]:
-    """Draw the review sheets and write the review CSV (keep = 1 for every image)."""
-    if s.review_csv.exists() and not force:
-        raise SystemExit(f"{s.review_csv} exists (it may hold your decisions); use --force")
-    road_id, pothole_id = class_ids(s.base_dir)
-    chosen = choose_review(read_csv(pseudo_dir / PSEUDO_CSV), s.review_n, s.seed)
+def _road(local_dir: Path, name: str) -> list[np.ndarray]:
+    return [i.polygon for i in parse_label_file(local_dir / "labels" / f"{name}.txt")]
+
+
+def review(local_dir: Path, s: PseudoSettings, out_dir: Path, force: bool = False) -> dict:
+    """Draw review and off-road sheets; write both decision CSVs (all accepted)."""
+    for path in (s.review_csv, s.offroad_csv):
+        if path.exists() and not force:
+            raise SystemExit(f"{path} exists (it may hold your decisions); use --force")
+    rows, holes = analyse(local_dir, s)
+    by_name = {r["name"]: r for r in rows}
     if out_dir.exists():
         shutil.rmtree(out_dir)
     out_dir.mkdir(parents=True)
+
     tiles, records = [], []
-    for idx, row in enumerate(chosen, start=1):
+    for idx, row in enumerate(choose_review(rows, s.review_n, s.seed), start=1):
         image = cv2.imread(str(s.base_dir / "images" / row["file"]))
-        road = [i.polygon for i in parse_label_file(pseudo_dir / "labels" / f"{row['name']}.txt")]
-        holes = _potholes(s.base_dir / "labels" / f"{row['name']}.txt", pothole_id)
-        cover = row["pothole_cover"] or "-"
-        caption = f"#{idx} cover {cover} conf {row['mean_conf'] or '-'}"
-        tiles.append(draw_review(image, road, holes, caption, row["flagged"] == "1"))
-        records.append({**{k: row[k] for k in REVIEW_FIELDS[1:-1]}, "idx": idx, "keep": 1})
-    write_sheets(tiles, out_dir)
-    s.review_csv.parent.mkdir(parents=True, exist_ok=True)
-    with s.review_csv.open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=REVIEW_FIELDS)
-        writer.writeheader()
-        writer.writerows(records)
-    return records
+        outlines = [
+            (h.polygon, OFFROAD_COLOUR if is_offroad(h, s) else POTHOLE_COLOUR)
+            for h in holes[row["name"]]
+        ]
+        caption = f"#{idx} cover {row['min_cover']} conf {row['mean_conf'] or '-'}"
+        road = _road(local_dir, row["name"])
+        tiles.append(draw_tile(image, road, outlines, caption, bool(row["flagged"])))
+        records.append({**row, "idx": idx, "keep": 1})
+    write_sheets(tiles, out_dir, "review")
+    write_csv(s.review_csv, REVIEW_FIELDS, records)
+
+    # Images without road say nothing about where potholes are; they are reviewed instead.
+    with_road = sorted(n for n in holes if by_name[n]["n_road"] != "0")
+    offroad = [h for name in with_road for h in holes[name] if is_offroad(h, s)]
+    tiles, off_records = [], []
+    for idx, h in enumerate(offroad, start=1):
+        image = cv2.imread(str(s.base_dir / "images" / by_name[h.name]["file"]))
+        caption = f"#{idx} cover {h.cover:.2f} area {h.area:.3f}"
+        road = _road(local_dir, h.name)
+        tiles.append(draw_tile(image, road, [(h.polygon, OFFROAD_COLOUR)], caption, False))
+        off_records.append(
+            {
+                "idx": idx,
+                "name": h.name,
+                "line": h.line,
+                "area": round(h.area, 4),
+                "cover": round(h.cover, 3),
+                "drop": 1,
+            }  # fmt: skip
+        )
+    if tiles:
+        write_sheets(tiles, out_dir, "offroad")
+    write_csv(s.offroad_csv, OFFROAD_FIELDS, off_records)
+    return {
+        "images": len(rows),
+        "without_road": sum(r["n_road"] == "0" for r in rows),
+        "flagged": sum(r["flagged"] for r in rows),
+        "reviewed": len(records),
+        "offroad_labels": len(off_records),
+        "offroad_images": len({r["name"] for r in off_records}),
+        "pothole_labels": sum(len(v) for v in holes.values()),
+    }
 
 
-# ---------------------------------------------------------------- build
+# ---------------------------------------------------------------- build (Mac)
 
 
-def build(pseudo_dir: Path, s: PseudoSettings, make_zip: bool = False) -> dict:
-    """merged-v1 = merged-v1-base + pseudo road lines, minus rejected images."""
-    if not s.review_csv.exists():
-        raise SystemExit(f"{s.review_csv} not found: run `review` and check the sheets first")
+def build(local_dir: Path, s: PseudoSettings, make_zip: bool = False) -> dict:
+    """merged-v1 = base + pseudo road lines, minus rejected images and off-road labels."""
+    for path in (s.review_csv, s.offroad_csv):
+        if not path.exists():
+            raise SystemExit(f"{path} not found: run `review` and check the sheets first")
     road_id, _ = class_ids(s.base_dir)
-    rows = read_csv(pseudo_dir / PSEUDO_CSV)
+    rows = read_csv(local_dir / PSEUDO_CSV)
     rejected = {r["name"] for r in read_csv(s.review_csv) if r["keep"].strip() == "0"}
-    test = _list_stems(s.base_dir / "test.txt")
-    if {r["name"] for r in rows} & test:
+    drop_lines: dict[str, set[int]] = {}
+    for r in read_csv(s.offroad_csv):
+        if r["drop"].strip() == "1":
+            drop_lines.setdefault(r["name"], set()).add(int(r["line"]))
+    if {r["name"] for r in rows} & _list_stems(s.base_dir / "test.txt"):
         raise AssertionError("pseudo labels found for test images")
 
     out = s.out_dir
     if out.exists():
         shutil.rmtree(out)
     shutil.copytree(s.base_dir, out)
+    dropped = 0
     for row in rows:
         name = row["name"]
         label = out / "labels" / f"{name}.txt"
@@ -339,23 +466,20 @@ def build(pseudo_dir: Path, s: PseudoSettings, make_zip: bool = False) -> dict:
             label.unlink(missing_ok=True)
             (out / "images" / row["file"]).unlink(missing_ok=True)
             continue
-        existing = label.read_text() if label.exists() else ""
-        if any(line.split()[0] == str(road_id) for line in existing.splitlines() if line.strip()):
+        lines = [ln for ln in label.read_text().splitlines() if ln.strip()]
+        if any(ln.split()[0] == str(road_id) for ln in lines):
             raise ValueError(f"{name} already has road labels; refusing to add pseudo road")
-        road_lines = (pseudo_dir / "labels" / f"{name}.txt").read_text()
-        if existing and not existing.endswith("\n"):
-            existing += "\n"
-        label.write_text(existing + road_lines)
+        skip = drop_lines.get(name, set())
+        dropped += len(skip)
+        kept = [ln for i, ln in enumerate(lines) if i not in skip]
+        road_lines = (local_dir / "labels" / f"{name}.txt").read_text().splitlines()
+        label.write_text("".join(f"{ln}\n" for ln in kept + road_lines if ln.strip()))
 
     for list_file in out.glob("*.txt"):
-        lines = list_file.read_text().split()
-        kept = [line for line in lines if Path(line).stem not in rejected]
+        kept = [ln for ln in list_file.read_text().split() if Path(ln).stem not in rejected]
         list_file.write_text("\n".join(kept) + "\n")
     split_rows = [r for r in read_csv(out / "split.csv") if r["name"] not in rejected]
-    with (out / "split.csv").open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(split_rows[0]))
-        writer.writeheader()
-        writer.writerows(split_rows)
+    write_csv(out / "split.csv", list(split_rows[0]), split_rows)
     data = yaml.safe_load((out / "data.yaml").read_text())
     (out / "data.yaml").write_text(
         "# Paths are relative to this file. Road on pothole-only (gn_) train/val images\n"
@@ -363,7 +487,7 @@ def build(pseudo_dir: Path, s: PseudoSettings, make_zip: bool = False) -> dict:
         "# val_real_road.txt / test_real_road.txt only. See docs/datasets.md.\n"
         + yaml.safe_dump(data, sort_keys=False)
     )
-    shutil.copy2(pseudo_dir / PSEUDO_CSV, out / PSEUDO_CSV)
+    shutil.copy2(local_dir / PSEUDO_CSV, out / PSEUDO_CSV)
 
     labelled = [r for r in rows if r["name"] not in rejected]
     summary = {
@@ -372,8 +496,8 @@ def build(pseudo_dir: Path, s: PseudoSettings, make_zip: bool = False) -> dict:
             sp: sum(r["split"] == sp for r in labelled) for sp in PSEUDO_SPLITS
         },
         "without_road": sum(r["n_road"] == "0" for r in labelled),
-        "flagged": sum(r["flagged"] == "1" for r in rows),
         "rejected": sorted(rejected),
+        "offroad_pothole_labels_dropped": dropped,
         "images": {sp: len((out / f"{sp}.txt").read_text().split()) for sp in SPLITS},
     }
     report_path = out / "report.json"
@@ -388,7 +512,7 @@ def build(pseudo_dir: Path, s: PseudoSettings, make_zip: bool = False) -> dict:
 # ---------------------------------------------------------------- CLI
 
 
-def _default_pseudo_dir() -> Path:
+def _drive_pseudo_dir() -> Path:
     from training.scripts.collect_runs import find_drive_root
 
     return find_drive_root() / "pseudo" / "teacher"
@@ -401,13 +525,13 @@ def main() -> None:
     p = sub.add_parser("predict", help="Colab: run the teacher")
     p.add_argument("--weights", type=Path, required=True, help="teacher best.pt")
     p.add_argument("--data-root", type=Path, required=True, help="unzipped merged-v1-base")
-    p.add_argument("--out", type=Path, required=True, help="pseudo folder, e.g. on Drive")
-    r = sub.add_parser("review", help="Mac: draw review sheets")
-    r.add_argument("--pseudo-dir", type=Path, help="default: <synced Drive>/pseudo/teacher")
+    p.add_argument("--out", type=Path, required=True, help="pseudo folder on Drive")
+    r = sub.add_parser("review", help="Mac: fetch from Drive, check, draw sheets")
+    r.add_argument("--drive-dir", type=Path, help="default: <synced Drive>/pseudo/teacher")
+    r.add_argument("--no-fetch", action="store_true", help="reuse the local copy")
     r.add_argument("--out", type=Path, default=REPO_ROOT / "outputs" / "pseudo_review")
-    r.add_argument("--force", action="store_true", help="overwrite the review CSV")
+    r.add_argument("--force", action="store_true", help="overwrite the decision CSVs")
     b = sub.add_parser("build", help="Mac: write merged-v1")
-    b.add_argument("--pseudo-dir", type=Path, help="default: <synced Drive>/pseudo/teacher")
     b.add_argument("--zip", action="store_true", help="also write <out_dir>.zip")
     args = parser.parse_args()
     s = load_settings(args.config)
@@ -415,17 +539,18 @@ def main() -> None:
     if args.step == "predict":
         from ultralytics import YOLO  # only on the training machine
 
-        args.out.mkdir(parents=True, exist_ok=True)
-        rows = predict(YOLO(str(args.weights)), args.data_root, args.out, s)
-        flagged = sum(r["flagged"] for r in rows)
+        with tempfile.TemporaryDirectory() as work:
+            rows = predict(YOLO(str(args.weights)), args.data_root, Path(work), s)
+            pack(Path(work), args.out)
         no_road = sum(r["n_road"] == 0 for r in rows)
-        print(f"{len(rows)} images labelled, {no_road} without road, {flagged} flagged")
+        print(f"{len(rows)} images labelled, {no_road} without road; {LABELS_ZIP} on Drive")
     elif args.step == "review":
-        records = review(args.pseudo_dir or _default_pseudo_dir(), s, args.out, args.force)
-        flagged = sum(r["flagged"] == "1" for r in records)
-        print(f"{len(records)} images ({flagged} flagged) in {args.out}; decisions: {s.review_csv}")
+        if not args.no_fetch:
+            n = fetch(args.drive_dir or _drive_pseudo_dir(), s.local_dir)
+            print(f"Fetched {n} label files to {s.local_dir}")
+        print(json.dumps(review(s.local_dir, s, args.out, args.force), indent=2))
     else:
-        print(json.dumps(build(args.pseudo_dir or _default_pseudo_dir(), s, args.zip), indent=2))
+        print(json.dumps(build(s.local_dir, s, args.zip), indent=2))
 
 
 if __name__ == "__main__":
