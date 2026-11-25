@@ -1,0 +1,39 @@
+{
+  "date": "2026-11-25",
+  "profile": "teacher",
+  "name": "teacher",
+  "commit": "2e77d2a",
+  "ultralytics": "8.4.211",
+  "config": {
+    "model": "yolo26n-seg.pt",
+    "data": {
+      "train": "train_real_road.txt",
+      "val": "val_real_road.txt"
+    },
+    "epochs": 30,
+    "imgsz": 640,
+    "batch": 16,
+    "patience": 30,
+    "seed": 0,
+    "deterministic": true,
+    "workers": 2,
+    "cache": "disk",
+    "fliplr": 0.5,
+    "flipud": 0.0,
+    "notes": "road teacher for pseudo-labelling; real-road images only"
+  },
+  "metrics": {
+    "pothole": {
+      "map50": 0.6527,
+      "map50_95": 0.3395
+    },
+    "road": {
+      "map50": 0.9578,
+      "map50_95": 0.7846
+    }
+  },
+  "metric_sources": {
+    "pothole": "val_real_road.txt",
+    "road": "val_real_road.txt"
+  }
+}
