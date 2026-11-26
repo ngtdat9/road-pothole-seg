@@ -1,0 +1,23 @@
+# Settings for the failure analysis (training/scripts/failures.py, Mac only).
+# The confidence threshold is not here: it is segmenter.conf in pipeline.yaml, so the
+# analysis sees the same masks the package will return.
+
+failures:
+  iou: 0.5                  # a predicted pothole counts as found when mask IoU >= this
+  grid: 640                 # raster size for mask IoU (normalised coords; IoU is unchanged)
+  n_pothole: 20             # worst images by pothole errors in the gallery
+  n_road: 8                 # worst real-road images by road IoU
+  local_dir: data/preds     # fetched predictions (gitignored)
+  out_dir: outputs/failures # gallery sheets and annotated images (gitignored)
+  csv_dir: docs             # docs/failures_<run>.csv: one row per gallery image, cause filled by hand
+  causes:                   # allowed values for the cause column
+    - shadow
+    - puddle
+    - patch                 # patched or repaired asphalt
+    - manhole
+    - crack                 # crack or joint mistaken for a pothole
+    - distant               # far from the camera, few pixels
+    - small
+    - blur
+    - label_error           # the label, not the model, is wrong
+    - other
