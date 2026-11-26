@@ -50,3 +50,6 @@ profiles:
     notes: Week 3 — tune1 + stronger zoom-out (scale 0.5 -> 0.7) for tiny and distant potholes
     epochs: 150
     scale: 0.7                   # Ultralytics default 0.5; failure analysis: tiny recall 0.55
+
+  naive:
+    notes: Week 3 exp 1 — baseline settings on merged-v1-naive (duplicates kept, random split)

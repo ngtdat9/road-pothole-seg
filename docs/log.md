@@ -50,3 +50,6 @@ Choose the model on val only, then score test once.
   bigger model does not help pothole on this data, so nano stays and tuning goes on with
   nano. The run was cut by a Colab disconnect at epoch 87 and resumed from `last.pt`.
   Fixed the live panel logging Ultralytics' final validation of `best.pt` as an extra epoch.
+- 2026-11-26: built `merged-v1-naive` for exp 1 (`naive_split.py`): merged-v1's test groups
+  held out, the rest split at random per image with duplicates kept. 64% of naive test
+  images share a dedup group with train. Zip on Drive; `naive` profile added.

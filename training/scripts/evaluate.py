@@ -13,7 +13,7 @@ What it does:
   empty file = nothing found) plus a manifest, for training/scripts/failures.py on the Mac,
 - writes <out>/eval_<split>.json.
 
-The test split needs --final: it is opened once, for the chosen model (Week 3, Day 6).
+The test splits need --final: it is opened once, for the chosen model (Week 3, Day 6).
 Ultralytics is imported inside `evaluate` only, so tests and CI never need it.
 """
 
@@ -33,7 +33,7 @@ import numpy as np
 
 from training.scripts.train import class_metrics, git_commit, package_version, write_data_yaml
 
-EVAL_SPLITS = ("val", "test")
+EVAL_SPLITS = ("val", "test", "test_clean")  # test_clean: merged-v1-naive only
 MANIFEST = "manifest.csv"
 PRED_CONF_FLOOR = 0.05  # keep low-confidence masks too; failures.py applies the real threshold
 
@@ -126,7 +126,7 @@ def evaluate(
     """Validate `weights` at each size; optionally save predictions. `yolo_cls` is for tests."""
     if split not in EVAL_SPLITS:
         raise ValueError(f"split must be one of {EVAL_SPLITS}, got {split!r}")
-    if split == "test" and not final:
+    if split.startswith("test") and not final:
         raise SystemExit("test is for the final evaluation only: pass --final to open it")
     pothole_list, road_list = f"{split}.txt", f"{split}_real_road.txt"
     for name in (pothole_list, road_list):

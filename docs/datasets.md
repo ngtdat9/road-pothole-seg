@@ -311,3 +311,24 @@ only (971 + 209); test images are never read.
 
 Output `data/merged-v1/` + `merged-v1.zip` (224 MB) on Drive (`road-pothole-seg/data/`).
 Box-only label lines: 0. Road metrics still come from `*_real_road.txt` only.
+
+## Naive merge `merged-v1-naive` (Week 3, 2026-11-26) — leakage experiment only
+
+Built by `training/scripts/naive_split.py` (settings: `naive` in `configs/merge.yaml`).
+Never used to choose or ship a model; it only measures how much duplicates inflate scores.
+
+- Held out first: merged-v1's test split and every pool image in the same dedup group
+  (586 images, incl. their duplicates), so the naive model never trains on a copy of a
+  clean test image.
+- The rest of the pool, **duplicates kept**, split 70/15/15 at random per image (seed 0,
+  no grouping): 2,231 / 478 / 478. Duplicates: 359 / 78 / 83.
+- Labels: merged-v1 labels for images in merged-v1. A duplicate keeps its own pothole
+  labels; a pothole-only duplicate borrows its kept twin's road. Left out: 5 images
+  merged-v1 rejected, 1 duplicate whose twin was rejected (no road to borrow).
+  GNSoft2 duplicates may still hold a few vehicle-as-pothole labels that were dropped
+  from their twins.
+- Leakage: 308 of 478 naive test images (64%) share a dedup group with a train image.
+- `test_clean.txt` / `test_clean_real_road.txt` = merged-v1's test (473 / 264), copied
+  unchanged, so one zip scores both test sets.
+
+Output `data/merged-v1-naive/` + `merged-v1-naive.zip` (245 MB) on Drive.

@@ -83,3 +83,11 @@ pseudo_road:
                                   # kept potholes into the road, like hand-labelled road
   review_n: 50                    # images in the by-eye review (all flagged + random)
   seed: 0
+
+# Naive merge for the leakage experiment (training/scripts/naive_split.py): the pool
+# with duplicates, minus merged-v1's test groups, split at random per image (ratios
+# from `split`). Scored on its own test.txt and on merged-v1's test (test_clean.txt).
+naive:
+  clean_dir: data/merged-v1
+  out_dir: data/merged-v1-naive
+  seed: 0

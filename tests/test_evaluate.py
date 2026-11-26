@@ -89,6 +89,9 @@ def test_test_split_needs_final(data_root: Path, tmp_path: Path) -> None:
     summary = evaluate(Path("best.pt"), data_root, tmp_path, [640], split="test", final=True,
                        yolo_cls=FakeYOLO)  # fmt: skip
     assert summary["metric_sources"] == {"pothole": "test.txt", "road": "test_real_road.txt"}
+    with pytest.raises(SystemExit, match="final"):  # the naive set's clean test, too
+        evaluate(Path("best.pt"), data_root, tmp_path, [640], split="test_clean",
+                 yolo_cls=FakeYOLO)  # fmt: skip
     with pytest.raises(ValueError):
         evaluate(Path("best.pt"), data_root, tmp_path, [640], split="train", yolo_cls=FakeYOLO)
 
