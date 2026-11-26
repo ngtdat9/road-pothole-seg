@@ -156,7 +156,7 @@ def test_resume_continues_from_last(config: Path, data_root: Path, tmp_path: Pat
 
 
 def test_repo_train_config_is_valid() -> None:
-    for profile in ("sanity", "teacher", "baseline"):
+    for profile in ("sanity", "teacher", "baseline", "small", "tune1"):
         cfg = load_profile(REPO_ROOT / "configs" / "train.yaml", profile)
         assert cfg["flipud"] == 0
         assert all("test" not in v for v in cfg["data"].values())

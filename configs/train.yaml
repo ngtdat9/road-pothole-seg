@@ -37,3 +37,11 @@ profiles:
 
   baseline:
     notes: Week 2 nano baseline
+
+  small:
+    notes: Week 3 exp 2 — small model, same data and settings as baseline
+    model: yolo26s-seg.pt
+
+  tune1:
+    notes: Week 3 — nano for 150 epochs (baseline was still improving at epoch 100)
+    epochs: 150
