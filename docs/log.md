@@ -57,3 +57,6 @@ Choose the model on val only, then score test once.
   training only stretches the learning-rate schedule; it reaches the same plateau later.
   Baseline, small and tune1 all sit within 0.01 on pothole, so gains below ~0.01 are
   likely run-to-run noise. tune2 changed to baseline + scale 0.7 (100 epochs).
+- 2026-11-26: tune2 (baseline + scale 0.7) finished: pothole 0.400, mAP50 0.707 (both below
+  baseline), road 0.792. Neither tuning run beat the baseline, so the nano baseline is
+  the v1.0 candidate. Remaining: naive run (exp 1), then the final test for baseline.
