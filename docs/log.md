@@ -1,0 +1,32 @@
+# Weekly log
+
+Short notes per week. Experiments themselves are in `docs/results.md`; dataset
+decisions in `docs/datasets.md`.
+
+## Week 2 (Nov 24–30): merge, pseudo road, baseline
+
+- **Training pipeline:** `train.py` profiles in `configs/train.yaml`; the Colab notebook
+  is a thin launcher. Data loading was the bottleneck (2 CPU cores, mosaic decodes ~4
+  images per sample), so the defaults are now `cache: disk` and `workers: 2`.
+- **Drive:** Colab writes thousands of small files to Drive unreliably. Every Colab job
+  now writes locally and uploads one zip, then calls `drive.flush_and_unmount()`.
+  Drive for desktop must keep syncing on the Mac.
+- **Road teacher:** trained on real-road images only, with road mask mAP50-95 0.785 on
+  `val_real_road`.
+- **Pseudo road (`pseudo_label.py`):** the teacher draws road around potholes, while
+  hand labels cover them, so kept potholes are filled into the pseudo road. An off-road
+  check (ring cover < 0.5) found 14 labels; 13 were dropped, mostly vehicles that GNSoft2
+  labels as potholes. Review rejected 5 images. Test is never pseudo-labelled.
+- **merged-v1:** 2,196 / 471 / 473 images in train / val / test. Its zip is on Drive.
+- **Baseline (nano, 100 epochs):** pothole mask mAP50-95 0.408, road 0.789. Road equals
+  the teacher, so pseudo road did no harm. The run was still improving at epoch 100.
+
+## Week 3 (Dec 1–7): tuning and failure analysis
+
+Plan: train small (exp 2), naive merge (exp 1), tune-1 (150 epochs), and tune-2 (chosen
+from the failures). Evaluate at 640/480/320 and run a failure gallery on val (exp 5).
+Choose the model on val only, then score test once.
+
+- 2026-11-26: added `small` and `tune1` profiles, `evaluate.py` (multi-size val and a
+  predictions zip) and `failures.py` (IoU matching, recall by size, gallery,
+  `docs/failures_<run>.csv`).
