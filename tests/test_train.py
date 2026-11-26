@@ -35,6 +35,9 @@ class FakeYOLO:
     def train(self, **kwargs: Any) -> None:
         FakeYOLO.calls.append(("train", self.weights, kwargs))
 
+    def add_callback(self, event: str, fn: Any) -> None:
+        FakeYOLO.calls.append(("callback", event, {}))
+
     def val(self, **kwargs: Any) -> SimpleNamespace:
         FakeYOLO.calls.append(("val", self.weights, kwargs))
         data = yaml.safe_load(Path(kwargs["data"]).read_text())
@@ -153,6 +156,15 @@ def test_resume_continues_from_last(config: Path, data_root: Path, tmp_path: Pat
     out = tmp_path / "runs"
     run("sanity", data_root, out, config, resume=True, yolo_cls=FakeYOLO)
     assert FakeYOLO.calls[0] == ("train", str(out / "sanity/weights/last.pt"), {"resume": True})
+
+
+def test_run_registers_callbacks_before_training(config: Path, data_root: Path, tmp_path: Path):
+    FakeYOLO.calls = []
+    run("sanity", data_root, tmp_path / "runs", config, yolo_cls=FakeYOLO,
+        callbacks={"on_fit_epoch_end": print})  # fmt: skip
+    assert [c[:2] for c in FakeYOLO.calls[:2]] == [
+        ("callback", "on_fit_epoch_end"), ("train", "yolo26n-seg.pt"),
+    ]  # fmt: skip
 
 
 def test_repo_train_config_is_valid() -> None:

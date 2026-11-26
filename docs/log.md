@@ -30,3 +30,6 @@ Choose the model on val only, then score test once.
 - 2026-11-26: added `small` and `tune1` profiles, `evaluate.py` (multi-size val and a
   predictions zip) and `failures.py` (IoU matching, recall by size, gallery,
   `docs/failures_<run>.csv`).
+- 2026-11-26: live training panel (`monitor.py`) in the Colab notebook: run progress and
+  ETA, mAP per class with the best epoch, early-stop countdown, speed, loss charts; every
+  epoch also saved to `runs/<run>/epochs.csv`.

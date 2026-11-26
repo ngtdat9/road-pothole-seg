@@ -144,8 +144,13 @@ def run(
     name: str | None = None,
     resume: bool = False,
     yolo_cls: Any = None,
+    callbacks: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Train, validate best.pt, and write summary.json. `yolo_cls` is for tests."""
+    """Train, validate best.pt, and write summary.json.
+
+    `callbacks` maps Ultralytics event names to functions (e.g. monitor.Monitor's live
+    panel). `yolo_cls` is for tests.
+    """
     if yolo_cls is None:
         from ultralytics import YOLO  # only on the training machine
 
@@ -156,11 +161,12 @@ def run(
     data_yaml = write_data_yaml(data_root, cfg["data"], name)
     run_dir = out / name
 
+    model = yolo_cls(str(run_dir / "weights" / "last.pt") if resume else cfg["model"])
+    for event, fn in (callbacks or {}).items():
+        model.add_callback(event, fn)
     if resume:
-        model = yolo_cls(str(run_dir / "weights" / "last.pt"))
         model.train(resume=True)
     else:
-        model = yolo_cls(cfg["model"])
         model.train(data=str(data_yaml), project=str(out), name=name, exist_ok=True,
                     **train_args(cfg))  # fmt: skip
 

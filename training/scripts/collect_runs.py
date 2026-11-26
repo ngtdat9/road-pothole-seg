@@ -25,7 +25,7 @@ from pathlib import Path
 
 from training.scripts.train import REPO_ROOT, results_row
 
-REPORT_FILES = ("summary.json", "results.csv", "results.png", "args.yaml")
+REPORT_FILES = ("summary.json", "results.csv", "results.png", "args.yaml", "epochs.csv")
 DRIVE_GLOB = "Library/CloudStorage/GoogleDrive-*/My Drive/road-pothole-seg"
 ENV_VAR = "ROAD_POTHOLE_DRIVE"
 
