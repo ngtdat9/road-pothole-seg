@@ -53,3 +53,7 @@ Choose the model on val only, then score test once.
 - 2026-11-26: built `merged-v1-naive` for exp 1 (`naive_split.py`): merged-v1's test groups
   held out, the rest split at random per image with duplicates kept. 64% of naive test
   images share a dedup group with train. Zip on Drive; `naive` profile added.
+- 2026-11-26: tune1 (150 epochs) finished: pothole 0.400 vs baseline 0.408, road 0.794. Longer
+  training only stretches the learning-rate schedule; it reaches the same plateau later.
+  Baseline, small and tune1 all sit within 0.01 on pothole, so gains below ~0.01 are
+  likely run-to-run noise.
