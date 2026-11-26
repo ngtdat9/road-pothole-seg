@@ -45,3 +45,8 @@ profiles:
   tune1:
     notes: Week 3 — nano for 150 epochs (baseline was still improving at epoch 100)
     epochs: 150
+
+  tune2:
+    notes: Week 3 — tune1 + stronger zoom-out (scale 0.5 -> 0.7) for tiny and distant potholes
+    epochs: 150
+    scale: 0.7                   # Ultralytics default 0.5; failure analysis: tiny recall 0.55

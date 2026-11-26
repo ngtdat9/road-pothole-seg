@@ -168,7 +168,7 @@ def test_run_registers_callbacks_before_training(config: Path, data_root: Path, 
 
 
 def test_repo_train_config_is_valid() -> None:
-    for profile in ("sanity", "teacher", "baseline", "small", "tune1"):
+    for profile in ("sanity", "teacher", "baseline", "small", "tune1", "tune2"):
         cfg = load_profile(REPO_ROOT / "configs" / "train.yaml", profile)
         assert cfg["flipud"] == 0
         assert all("test" not in v for v in cfg["data"].values())
