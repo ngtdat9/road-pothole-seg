@@ -60,3 +60,6 @@ Choose the model on val only, then score test once.
 - 2026-11-26: tune2 (baseline + scale 0.7) finished: pothole 0.400, mAP50 0.707 (both below
   baseline), road 0.792. Neither tuning run beat the baseline, so the nano baseline is
   the v1.0 candidate. Remaining: naive run (exp 1), then the final test for baseline.
+- 2026-11-26: wrote `docs/failures.md` (exp 5): overall numbers, the 20 worst pothole and 8
+  worst road images by cause, and README limitations. About a third of the worst cases are
+  label problems (wrong labels, cracks labelled as potholes).
