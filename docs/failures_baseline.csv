@@ -1,0 +1,29 @@
+idx,kind,name,real_road,n_gt,tp,fn,fp,missed_area,road_iou,cause,note
+1,pothole,rs_Screenshot-43-_png_jpg,1,7,0,7,0,0.011,0.809,distant,"high camera looking down; 7 small far potholes, none found"
+2,pothole,pr_img-604_jpg,1,10,5,5,1,0.0345,0.677,puddle,muddy water-filled potholes; the far ones missed
+3,pothole,pr_img-411_jpg,1,13,10,3,3,0.0051,0.954,small,dense cluster of small potholes; boundaries between neighbours disagree
+4,pothole,gn_1695257027815_jpg,0,6,1,5,0,0.1208,,label_error,truck wheel and road cones labelled as pothole; the real pothole by the manhole was found
+5,pothole,pr_vlcsnap-2020-04-12-02h02m18s629_jpg,1,3,0,3,2,0.015,0.942,other,faint shallow potholes with little contrast
+6,pothole,rs_India_003624_jpg,1,1,0,1,4,0.01,0.972,label_error,unlabelled broken asphalt on the right; predictions there count as false
+7,pothole,rs_Screenshot-2023-07-10-122528_png_jpg,1,6,2,4,0,0.1441,0.609,label_error,motorbike dashboard and handlebars labelled as pothole
+8,pothole,gn_ys_057_png_jpg,0,2,0,2,2,0.0058,,crack,long crack labelled as pothole; prediction split into pieces
+9,pothole,pr_G0267328_jpg,1,5,1,4,0,0.0006,0.739,distant,tiny potholes far ahead on a straight road
+10,pothole,pr_G0064481_jpg,1,3,1,2,2,0.0004,0.901,distant,"far potholes found but shifted, IoU below 0.5"
+11,pothole,pr_img-406_jpg,1,1,0,1,2,0.5046,0.991,other,close-up of one large pothole; prediction covers only parts
+12,pothole,pr_img-431_jpg,1,4,3,1,2,0.0367,0.88,puddle,"wet road, pothole cut off at the image edge"
+13,pothole,rs_Screenshot-2023-07-10-122640_png_jpg,1,1,0,1,2,0.0323,0.921,other,shallow damaged area; prediction smaller than the label
+14,pothole,rs_Screenshot-2023-07-10-122738_png_jpg,1,2,1,1,2,0.0223,0.917,patch,broken surface where pothole edges are ambiguous
+15,pothole,gn_ys_003_png_jpg,0,3,0,3,0,0.0214,,patch,sunken patched area and broken edge missed
+16,pothole,gn_ys_005_png_jpg,0,1,0,1,2,0.0107,,crack,crack along the lane line labelled as pothole
+17,pothole,rs_Norway_002698_jpg,1,3,0,3,0,0.0036,0.969,distant,"snow road, small far potholes"
+18,pothole,rs_Japan_007362_jpg,1,2,0,2,1,0.0034,0.964,crack,alligator-cracked surface; small potholes among cracks
+19,pothole,gn_ys_001_png_jpg,0,2,0,2,1,0.0029,,crack,long joint crack labelled as pothole
+20,pothole,rs_Screenshot-2023-07-10-190846_png_jpg,1,4,2,2,1,0.0018,0.912,distant,two small far potholes missed; near ones found
+21,road,pr_img-290_jpg,1,1,1,0,0,0,0.339,other,"close-up: predicted road stops at the pothole edge, label road covers it"
+22,road,pr_img-542_jpg,1,2,1,1,0,0.0396,0.411,other,close-up: road leaves a hole at the pothole
+23,road,pr_img-287_jpg,1,1,1,0,0,0,0.461,other,close-up: road leaves a hole at the pothole
+24,road,pr_img-625_jpg,1,2,2,0,0,0,0.487,other,close-up: road leaves a hole at the pothole
+25,road,pr_img-452_jpg,1,1,1,0,0,0,0.499,other,close-up: road leaves a hole at the pothole
+26,road,pr_img-657_jpg,1,1,1,0,3,0,0.523,other,close-up: road leaves a hole; false potholes along the bottom edge
+27,road,pr_img-351_jpg,1,1,1,0,0,0,0.592,other,close-up: road leaves a hole at the pothole
+28,road,pr_img-316_jpg,1,1,0,1,1,0.1791,0.604,manhole,"manhole inside broken asphalt; label covers half, prediction covers all"

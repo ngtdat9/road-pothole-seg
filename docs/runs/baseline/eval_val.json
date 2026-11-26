@@ -1,0 +1,49 @@
+{
+  "date": "2026-11-26",
+  "weights": "/content/drive/MyDrive/road-pothole-seg/runs/baseline/weights/best.pt",
+  "split": "val",
+  "commit": "7af1cfd",
+  "ultralytics": "8.4.211",
+  "metric_sources": {
+    "pothole": "val.txt",
+    "road": "val_real_road.txt"
+  },
+  "sizes": {
+    "640": {
+      "pothole": {
+        "map50": 0.7224,
+        "map50_95": 0.4083
+      },
+      "road": {
+        "map50": 0.9551,
+        "map50_95": 0.7895
+      }
+    },
+    "480": {
+      "pothole": {
+        "map50": 0.6869,
+        "map50_95": 0.3748
+      },
+      "road": {
+        "map50": 0.9565,
+        "map50_95": 0.8045
+      }
+    },
+    "320": {
+      "pothole": {
+        "map50": 0.6396,
+        "map50_95": 0.3171
+      },
+      "road": {
+        "map50": 0.9532,
+        "map50_95": 0.785
+      }
+    }
+  },
+  "predictions": {
+    "zip": "preds_val_640.zip",
+    "imgsz": 640,
+    "images": 471,
+    "conf_floor": 0.05
+  }
+}

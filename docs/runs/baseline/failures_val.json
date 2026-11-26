@@ -1,0 +1,54 @@
+{
+  "run": "baseline",
+  "split": "val",
+  "conf": 0.25,
+  "iou": 0.5,
+  "images": 471,
+  "pothole": {
+    "labels": 696,
+    "predictions": 649,
+    "found": 488,
+    "missed": 208,
+    "false": 161,
+    "precision": 0.752,
+    "recall": 0.701,
+    "f1": 0.726,
+    "mean_matched_iou": 0.782,
+    "recall_by_size": {
+      "tiny <0.1%": {
+        "labels": 148,
+        "found": 81,
+        "recall": 0.547
+      },
+      "small 0.1-1%": {
+        "labels": 367,
+        "found": 266,
+        "recall": 0.725
+      },
+      "medium 1-5%": {
+        "labels": 133,
+        "found": 98,
+        "recall": 0.737
+      },
+      "large >=5%": {
+        "labels": 48,
+        "found": 43,
+        "recall": 0.896
+      }
+    }
+  },
+  "road": {
+    "real_road_images": 264,
+    "mean_iou": 0.908,
+    "images_below_0.8": 24
+  },
+  "gallery": {
+    "csv": "failures_baseline.csv",
+    "sheets": [
+      "pothole_01.jpg",
+      "pothole_02.jpg",
+      "pothole_03.jpg",
+      "road_01.jpg"
+    ]
+  }
+}

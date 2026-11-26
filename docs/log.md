@@ -33,3 +33,16 @@ Choose the model on val only, then score test once.
 - 2026-11-26: live training panel (`monitor.py`) in the Colab notebook: run progress and
   ETA, mAP per class with the best epoch, early-stop countdown, speed, loss charts; every
   epoch also saved to `runs/<run>/epochs.csv`.
+- 2026-11-26: baseline evaluated on val at 640/480/320 (`docs/runs/baseline/eval_val.json`;
+  640 matches the training summary exactly). Pothole drops 0.408 → 0.375 → 0.317, road
+  stays ~0.79–0.80.
+- 2026-11-26: failure analysis of baseline on val (conf 0.25, IoU 0.5;
+  `docs/runs/baseline/failures_val.json`, `docs/failures_baseline.csv`):
+  - pothole precision 0.752, recall 0.701; recall by size: tiny 0.55, small 0.73,
+    medium 0.74, large 0.90. Missed tiny/distant potholes are the biggest group.
+  - 20 worst images by cause: distant 5, crack 4, label error 3, other 3, puddle 2,
+    patch 2, small 1. Label errors: a truck wheel, cones and a motorbike dashboard
+    labelled as pothole.
+  - Road: mean IoU 0.908 on real-road images; all 8 worst are close-ups where the
+    predicted road stops at the pothole edge while the labels cover it. Filling
+    predicted potholes into the road mask gives 0.927 (images below 0.8: 24 → 13).
