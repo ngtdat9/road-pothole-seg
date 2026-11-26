@@ -16,3 +16,21 @@ Mask mAP from Ultralytics; test-split numbers appear only in the final evaluatio
 | 2026-11-26 | tune1 | yolo26n-seg | train.txt | 150 | 640 | 0.723 | 0.400 | 0.957 | 0.794 | e2986ac || 150 epochs did not help: pothole 0.400 vs baseline 0.408 (−0.008), road 0.794 (+0.005). The longer LR schedule only shifts the curve (in-training val 0.394 at epoch 100, best 0.408 at 146); 100 epochs is already the plateau. ~63 s/epoch, 2.6 h |
 | 2026-11-26 | tune2 | yolo26n-seg | train.txt | 100 | 640 | 0.707 | 0.400 | 0.959 | 0.792 | d467f9c || Stronger zoom-out (scale 0.7) did not help: pothole 0.400 vs baseline 0.408 (−0.008), mAP50 0.707 vs 0.722 (−0.015); road 0.792 (+0.003). Baseline stays the best model; tiny-pothole misses need more data or input size, not augmentation |
 | 2026-11-26 | naive | yolo26n-seg | train.txt | 100 | 640 | 0.771 | 0.443 | 0.963 | 0.815 | 58c3ffe || Exp 1, dataset merged-v1-naive (duplicates kept, random split). Scores are on the naive val, where 62% of images share a dedup group with train: pothole 0.443 / mAP50 0.771 vs baseline 0.408 / 0.722 on clean val. Inflated, not comparable; the honest comparison is both models on test_clean (pending) |
+| 2026-11-26 | baseline TEST @640 | yolo26n-seg | train.txt | 100 | 640 | 0.720 | 0.401 | 0.980 | 0.806 | 83cdde2 | **Final test of the chosen model (opened once).** Matches val (0.722 / 0.408), so model selection on val did not overfit |
+| 2026-11-26 | baseline TEST @480 | yolo26n-seg | train.txt | 100 | 480 | 0.694 | 0.372 | 0.982 | 0.818 | 83cdde2 | Final test at 480: pothole −0.026 mAP50, road unchanged |
+| 2026-11-26 | baseline TEST @320 | yolo26n-seg | train.txt | 100 | 320 | 0.593 | 0.303 | 0.971 | 0.809 | 83cdde2 | Final test at 320: pothole −0.127 mAP50; road holds |
+| 2026-11-26 | naive on naive test | yolo26n-seg | merged-v1-naive | 100 | 640 | 0.780 | 0.454 | 0.981 | 0.819 | 83cdde2 | Exp 1: the score a naive merge would report |
+| 2026-11-26 | naive on clean test | yolo26n-seg | merged-v1-naive | 100 | 640 | 0.714 | 0.399 | 0.975 | 0.800 | 83cdde2 | Exp 1: same model on merged-v1's test: −0.067 mAP50. Equal to baseline (0.720), so duplicates add no real skill, only inflate the reported score |
+
+## Experiment 1 — duplicate leakage (test, 640 px, pothole mask)
+
+| Model | Scored on | mAP50 | mAP50-95 |
+|---|---|---|---|
+| naive merge | its own random test (leaky) | 0.780 | 0.454 |
+| naive merge | clean test | 0.714 | 0.399 |
+| de-duplicated, grouped (baseline) | clean test | 0.720 | 0.401 |
+
+A naive merge overstates pothole mask mAP50 by 0.06–0.07 (about 9%) and mAP50-95 by
+0.05 (13%). On the same clean test the two models are equal, so the extra duplicate
+images taught nothing new. Road barely moves (+0.02 on the leaky test), as road looks
+alike in every image.

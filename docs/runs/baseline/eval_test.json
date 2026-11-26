@@ -1,0 +1,43 @@
+{
+  "date": "2026-11-26",
+  "weights": "/content/drive/MyDrive/road-pothole-seg/runs/baseline/weights/best.pt",
+  "split": "test",
+  "commit": "83cdde2",
+  "ultralytics": "8.4.211",
+  "metric_sources": {
+    "pothole": "test.txt",
+    "road": "test_real_road.txt"
+  },
+  "sizes": {
+    "640": {
+      "pothole": {
+        "map50": 0.7196,
+        "map50_95": 0.4009
+      },
+      "road": {
+        "map50": 0.9797,
+        "map50_95": 0.8058
+      }
+    },
+    "480": {
+      "pothole": {
+        "map50": 0.6943,
+        "map50_95": 0.3717
+      },
+      "road": {
+        "map50": 0.9815,
+        "map50_95": 0.8175
+      }
+    },
+    "320": {
+      "pothole": {
+        "map50": 0.593,
+        "map50_95": 0.303
+      },
+      "road": {
+        "map50": 0.9707,
+        "map50_95": 0.8094
+      }
+    }
+  }
+}

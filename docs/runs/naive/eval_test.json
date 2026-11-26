@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-26",
+  "weights": "/content/drive/MyDrive/road-pothole-seg/runs/naive/weights/best.pt",
+  "split": "test",
+  "commit": "83cdde2",
+  "ultralytics": "8.4.211",
+  "metric_sources": {
+    "pothole": "test.txt",
+    "road": "test_real_road.txt"
+  },
+  "sizes": {
+    "640": {
+      "pothole": {
+        "map50": 0.7804,
+        "map50_95": 0.4538
+      },
+      "road": {
+        "map50": 0.9814,
+        "map50_95": 0.8192
+      }
+    }
+  }
+}

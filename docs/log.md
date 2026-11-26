@@ -66,3 +66,14 @@ Choose the model on val only, then score test once.
 - 2026-11-26: naive run finished. On its own (leaky) val it looks better than the baseline:
   pothole mAP50 0.771 vs 0.722, mAP50-95 0.443 vs 0.408. Waiting for both models on the
   clean test before drawing the conclusion.
+- 2026-11-26: test opened once. Baseline on test: pothole mAP50 0.720 / mAP50-95 0.401, road
+  0.806 (val was 0.722 / 0.408 / 0.789). Exp 1: the naive model scores 0.780 on its own
+  test but 0.714 on the clean test, equal to the baseline. Duplicates inflate the
+  reported pothole mAP50 by ~0.07 and add no real accuracy.
+
+**Week 3 summary.** Model chosen: nano baseline (100 epochs, 640 px). Small model, 150
+epochs and stronger zoom-out all scored within 0.01 of it on val, so the limit is data,
+not settings. Test confirms val (pothole mAP50 0.720, road mAP50-95 0.806). Leakage
+measured (+0.07 mAP50 from a naive merge). Failure analysis in `docs/failures.md`.
+Carried to Week 4: export ONNX at 320/480/640; fill potholes into the road mask in
+post-processing; 480 px costs 0.026 pothole mAP50 and 320 px 0.127, to weigh against FPS.
