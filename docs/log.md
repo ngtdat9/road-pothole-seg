@@ -63,3 +63,6 @@ Choose the model on val only, then score test once.
 - 2026-11-26: wrote `docs/failures.md` (exp 5): overall numbers, the 20 worst pothole and 8
   worst road images by cause, and README limitations. About a third of the worst cases are
   label problems (wrong labels, cracks labelled as potholes).
+- 2026-11-26: naive run finished. On its own (leaky) val it looks better than the baseline:
+  pothole mAP50 0.771 vs 0.722, mAP50-95 0.443 vs 0.408. Waiting for both models on the
+  clean test before drawing the conclusion.

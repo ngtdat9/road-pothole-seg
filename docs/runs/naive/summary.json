@@ -1,0 +1,39 @@
+{
+  "date": "2026-11-26",
+  "profile": "naive",
+  "name": "naive",
+  "commit": "58c3ffe",
+  "ultralytics": "8.4.211",
+  "config": {
+    "model": "yolo26n-seg.pt",
+    "data": {
+      "train": "train.txt",
+      "val": "val.txt"
+    },
+    "epochs": 100,
+    "imgsz": 640,
+    "batch": 16,
+    "patience": 30,
+    "seed": 0,
+    "deterministic": true,
+    "workers": 2,
+    "cache": "disk",
+    "fliplr": 0.5,
+    "flipud": 0.0,
+    "notes": "Week 3 exp 1 \u2014 baseline settings on merged-v1-naive (duplicates kept, random split)"
+  },
+  "metrics": {
+    "pothole": {
+      "map50": 0.7714,
+      "map50_95": 0.4426
+    },
+    "road": {
+      "map50": 0.963,
+      "map50_95": 0.8145
+    }
+  },
+  "metric_sources": {
+    "pothole": "val.txt",
+    "road": "val_real_road.txt"
+  }
+}
