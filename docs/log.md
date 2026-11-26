@@ -46,3 +46,7 @@ Choose the model on val only, then score test once.
   - Road: mean IoU 0.908 on real-road images; all 8 worst are close-ups where the
     predicted road stops at the pothole edge while the labels cover it. Filling
     predicted potholes into the road mask gives 0.927 (images below 0.8: 24 → 13).
+- 2026-11-26: small (exp 2) finished: pothole 0.403 vs nano 0.408, road 0.801 vs 0.789. A
+  bigger model does not help pothole on this data, so nano stays and tuning goes on with
+  nano. The run was cut by a Colab disconnect at epoch 87 and resumed from `last.pt`.
+  Fixed the live panel logging Ultralytics' final validation of `best.pt` as an extra epoch.

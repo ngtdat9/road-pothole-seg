@@ -61,6 +61,7 @@ def test_monitor_records_epochs_and_redraws(tmp_path: Path) -> None:
     trainer = FakeTrainer(tmp_path / "baseline")
     m.on_train_start(trainer)
     _train(m, trainer, [0.30, 0.42, 0.41, 0.40])
+    m.on_fit_epoch_end(trainer)  # final validation of best.pt: no new epoch
     m.on_train_end(trainer)
 
     assert len(shown) == 6  # start, 4 epochs, end

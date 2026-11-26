@@ -432,7 +432,8 @@ class Monitor:
         self.records: list[dict[str, Any]] = []
         self.info: dict[str, Any] = {}
         self.csv_path: Path | None = None
-        self._epoch_start = self._train_end = 0.0
+        self._epoch_start = 0.0
+        self._train_end: float | None = None  # None: no training epoch since the last record
 
     @staticmethod
     def notebook() -> Callable[[str], None]:
@@ -476,8 +477,11 @@ class Monitor:
         self._train_end = time.time()
 
     def on_fit_epoch_end(self, trainer: Any) -> None:
+        if self._train_end is None:
+            return  # Ultralytics' final validation of best.pt fires this again: not an epoch
         now = time.time()
         rec = epoch_record(trainer, self._train_end - self._epoch_start, now - self._train_end)
+        self._train_end = None
         self.records = [r for r in self.records if r["epoch"] < rec["epoch"]] + [rec]
         if self.csv_path is not None:
             write_epochs(self.csv_path, self.records)

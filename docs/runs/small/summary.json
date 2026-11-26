@@ -1,0 +1,39 @@
+{
+  "date": "2026-11-26",
+  "profile": "small",
+  "name": "small",
+  "commit": "69f891e",
+  "ultralytics": "8.4.211",
+  "config": {
+    "model": "yolo26s-seg.pt",
+    "data": {
+      "train": "train.txt",
+      "val": "val.txt"
+    },
+    "epochs": 100,
+    "imgsz": 640,
+    "batch": 16,
+    "patience": 30,
+    "seed": 0,
+    "deterministic": true,
+    "workers": 2,
+    "cache": "disk",
+    "fliplr": 0.5,
+    "flipud": 0.0,
+    "notes": "Week 3 exp 2 \u2014 small model, same data and settings as baseline"
+  },
+  "metrics": {
+    "pothole": {
+      "map50": 0.7166,
+      "map50_95": 0.4025
+    },
+    "road": {
+      "map50": 0.9592,
+      "map50_95": 0.8011
+    }
+  },
+  "metric_sources": {
+    "pothole": "val.txt",
+    "road": "val_real_road.txt"
+  }
+}
