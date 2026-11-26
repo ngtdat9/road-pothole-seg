@@ -56,4 +56,4 @@ Choose the model on val only, then score test once.
 - 2026-11-26: tune1 (150 epochs) finished: pothole 0.400 vs baseline 0.408, road 0.794. Longer
   training only stretches the learning-rate schedule; it reaches the same plateau later.
   Baseline, small and tune1 all sit within 0.01 on pothole, so gains below ~0.01 are
-  likely run-to-run noise.
+  likely run-to-run noise. tune2 changed to baseline + scale 0.7 (100 epochs).
