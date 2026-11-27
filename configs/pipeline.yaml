@@ -6,6 +6,8 @@ segmenter:
   input_size: null        # null = read from the ONNX model's input shape
   conf: 0.25
   mask_threshold: 0.5
+  iou: 0.5               # NMS overlap; Ultralytics' predict default
+  fill_road: true         # road mask = road ∪ potholes (Week 3: road IoU 0.908 -> 0.927)
 
 severity:
   # Upper bounds of "small" and "medium"; anything above is "large".

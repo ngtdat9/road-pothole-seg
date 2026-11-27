@@ -33,7 +33,7 @@ from road_pothole_seg import (
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG = REPO_ROOT / "configs" / "pipeline.yaml"
-DEFAULT_MODEL = REPO_ROOT / "models" / "road_pothole_seg.onnx"
+DEFAULT_MODEL = REPO_ROOT / "models" / "baseline-640.onnx"
 CSV_FIELDS = ["track_id", "first_frame", "last_frame", "max_area_px", "max_area_m2", "severity"]
 
 # Overlay colours (BGR) and opacity — display only, not pipeline settings.

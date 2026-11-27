@@ -3,6 +3,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from conftest import FakeDet, FakeModel
 
 from apps.run_video import PotholeLog, draw_overlay, run
 from road_pothole_seg import Pothole, Segmentation
@@ -64,7 +65,8 @@ def test_overlay_keeps_shape_and_does_not_touch_input() -> None:
     assert out[15, 15].any()  # road tinted
 
 
-def test_run_end_to_end_on_video_file(tmp_path: Path) -> None:
+def test_run_end_to_end_on_video_file(tmp_path: Path, fake_model: FakeModel) -> None:
+    fake_model.dets = [FakeDet(1, 0.8, (300, 300, 360, 360))]  # one pothole per frame
     video = tmp_path / "in.avi"
     _write_video(video, n_frames=6)
     csv_path = tmp_path / "potholes.csv"
@@ -78,7 +80,8 @@ def test_run_end_to_end_on_video_file(tmp_path: Path) -> None:
     assert [int(r["first_frame"]) for r in rows] == list(range(6))
 
 
-def test_run_respects_max_frames(tmp_path: Path) -> None:
+def test_run_respects_max_frames(tmp_path: Path, fake_model: FakeModel) -> None:
+    fake_model.dets = [FakeDet(1, 0.8, (300, 300, 360, 360))]
     video = tmp_path / "in.avi"
     _write_video(video, n_frames=10)
     log = run(str(video), show=False, max_frames=3)
