@@ -55,3 +55,14 @@ best.pt the input differs on non-square frames: PyTorch letterboxes to the small
 ONNX = best.pt with square input at 640 and 320). A first version that thresholded after
 resizing to the frame scored only 0.982 (small potholes grew by a row of pixels), so the
 package now follows Ultralytics' order: threshold at input size, crop to box, then resize.
+
+## Tracker on synthetic clips (Week 4)
+
+`benchmarks/track_sim.py`, 20 val images per mode, 640 px ONNX, settings from
+`configs/pipeline.yaml` (track_thresh 0.4, min_hits 2, match_buffer 0.3). Coverage =
+share of visible labelled-pothole frames with a tracked pothole (box IoU ≥ 0.3).
+
+| Mode | GT tracks | Detector alone | Tracker coverage | ID switches | False tracks |
+|---|---|---|---|---|---|
+| dashcam (zoom, 30 FPS, 60 frames) | 29 | 0.811 | 0.742 | 0 | 6 |
+| drone (pan, 5 Hz, 20 frames) | 30 | 0.825 | 0.725 | 0 | 2 |

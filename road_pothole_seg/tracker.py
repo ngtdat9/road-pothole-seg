@@ -11,6 +11,8 @@ ByteTrack (Zhang et al., ECCV 2022) with a constant-velocity Kalman filter on th
    starts a new unconfirmed track,
 5. marks unmatched tracks lost and forgets them after `lost_seconds`.
 
+Boxes are grown by `match_buffer` x their size on each side before IoU (buffered IoU),
+so small, fast-moving potholes and low frame rates still overlap between frames.
 A track gets its ID once it has been matched in `min_hits` frames, so one-frame false
 detections never get an ID and IDs count up 1, 2, 3 without gaps. Matching is greedy
 by IoU (highest first), which equals the optimal assignment when overlaps are clear,
@@ -82,6 +84,14 @@ def box_iou(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return inter / np.maximum(area_a[:, None] + area_b[None, :] - inter, 1e-9)
 
 
+def expand(boxes: np.ndarray, buffer: float) -> np.ndarray:
+    """Grow xyxy boxes by `buffer` x their width/height on each side (buffered IoU)."""
+    if buffer == 0:
+        return boxes
+    wh = boxes[:, 2:] - boxes[:, :2]
+    return np.hstack([boxes[:, :2] - buffer * wh, boxes[:, 2:] + buffer * wh])
+
+
 def greedy_match(iou: np.ndarray, min_iou: float) -> list[tuple[int, int]]:
     """(row, col) pairs, highest IoU first, each row and column used once, IoU >= min_iou."""
     pairs: list[tuple[int, int]] = []
@@ -125,6 +135,7 @@ class PotholeTracker:
         low_match_iou: float = 0.5,
         lost_seconds: float = 1.0,
         min_hits: int = 2,
+        match_buffer: float = 0.3,
     ) -> None:
         if frame_rate <= 0:
             raise ValueError(f"frame_rate must be positive, got {frame_rate}")
@@ -136,12 +147,15 @@ class PotholeTracker:
             raise ValueError(f"lost_seconds must be >= 0, got {lost_seconds}")
         if min_hits < 1:
             raise ValueError(f"min_hits must be >= 1, got {min_hits}")
+        if match_buffer < 0:
+            raise ValueError(f"match_buffer must be >= 0, got {match_buffer}")
         self.frame_rate = frame_rate
         self.track_thresh = track_thresh
         self.match_iou = match_iou
         self.low_match_iou = low_match_iou
         self.lost_seconds = lost_seconds
         self.min_hits = min_hits
+        self.match_buffer = match_buffer
         self.max_lost_frames = math.ceil(lost_seconds * frame_rate)
         self._tracks: list[_Track] = []
         self._next_id = 1
@@ -161,7 +175,10 @@ class PotholeTracker:
         matched: dict[int, _Track] = {}  # detection index -> track
 
         def match(tracks: list[_Track], dets: list[int], min_iou: float) -> tuple[list, list]:
-            ious = box_iou(np.array([t.kf.box() for t in tracks]).reshape(-1, 4), boxes[dets])
+            predicted = np.array([t.kf.box() for t in tracks]).reshape(-1, 4)
+            ious = box_iou(
+                expand(predicted, self.match_buffer), expand(boxes[dets], self.match_buffer)
+            )
             pairs = greedy_match(ious, min_iou)
             for r, c in pairs:
                 matched[dets[c]] = tracks[r]

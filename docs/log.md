@@ -94,3 +94,28 @@ post-processing; 480 px costs 0.026 pothole mAP50 and 320 px 0.127, to weigh aga
   closer, 5 further, mean IoU unchanged (0.780): a safe tidy-up, not an accuracy gain.
   Severity `frac` bins set to the tertiles of labelled pothole area in train
   (0.12% and 0.66% of the frame) instead of the Week 1 placeholders (0.2% / 1%).
+- 2026-11-27: ByteTrack is no longer in supervision (0.31.7 has no tracker), so
+  `PotholeTracker` is our own ByteTrack in numpy (Kalman filter on the box, two-stage
+  IoU matching, IDs given after `min_hits` frames). supervision is dropped: the package
+  now needs only numpy, opencv and onnxruntime, enforced by `tests/test_imports.py`.
+- 2026-11-27: tracker settings checked on synthetic clips from 20 val images
+  (`benchmarks/track_sim.py`; labels warped with the frames give true tracks). Dashcam
+  (zoom towards the horizon, 30 FPS): coverage 0.742 of visible pothole frames (detector
+  alone 0.811), 0 ID switches, 6 false tracks. Drone (pan at 5 Hz): 0.725 (detector 0.825),
+  0 switches, 2 false tracks. Looser start (track_thresh 0.3) gains ~0.03 coverage but
+  doubles false tracks; buffered IoU (boxes +30% per side) adds 0.05 coverage at 5 Hz and
+  changes nothing at 30 FPS, so `match_buffer` = 0.3. Static photos have no blur, so real
+  video will score lower; re-run on the Week 5 demo footage.
+- 2026-11-27: end-to-end on a 60-frame 1280x720 clip (`apps/run_video.py`, Mac CPU): 19 FPS
+  at 640. Per stage (median ms): 640 px preprocess 2.3, inference 41.4, mask decoding 10.8,
+  analyse + track 4.3 (59 ms total, 17 FPS); 480 px 39 ms (26 FPS); 320 px 14 ms but no
+  potholes found on that clip. Mask decoding at frame size is the next cost to cut if
+  the PC is too slow. Note: the CSV `first_frame` is the frame a track got its ID, one
+  frame after it was first seen (`min_hits` = 2).
+
+**Week 4 summary.** Package complete and tested (170 tests): ONNX export at 640/480/320
+(lossless: ONNX val = best.pt with square input), `Segmenter` on ONNX Runtime matching
+Ultralytics on the same ONNX (mask IoU 0.996, identical scores), `clean_mask`, severity
+bins from data, numpy ByteTrack. Dependency change: supervision removed. Open for
+Week 5: real demo footage, Mac + PC benchmark, README, and the **licence**: Ultralytics
+marks the exported weights AGPL-3.0, which conflicts with releasing them under MIT.

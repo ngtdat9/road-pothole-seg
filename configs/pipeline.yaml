@@ -24,3 +24,4 @@ tracker:                  # ByteTrack in numpy (road_pothole_seg/tracker.py)
   low_match_iou: 0.5        # stricter IoU for low-score potholes (ByteTrack's second stage)
   lost_seconds: 1.0         # forget a track unseen this long (ByteTrack: 30 frames at 30 FPS)
   min_hits: 2               # frames matched before a track gets its ID
+  match_buffer: 0.3         # grow boxes by 30% per side before IoU: fast/small potholes, 5 Hz drone
