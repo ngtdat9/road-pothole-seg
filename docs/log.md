@@ -132,4 +132,4 @@ marks the exported weights AGPL-3.0, which conflicts with releasing them under M
   `any`. Now 4.0 + 0.3 ms, 16.7 FPS at 640. Masks also match Ultralytics more closely
   (check_onnx mean IoU 0.996 -> 1.000), as the old code rounded in uint8. ONNX Runtime's
   default thread count is fastest on the M1 (4 threads +5%, 8 threads +37% slower).
-  CoreML provider (Mac only, for reference): 31.5 FPS at 640.
+  CoreML provider (Mac only, for reference; not parity-checked): 51.6 FPS at 640.
