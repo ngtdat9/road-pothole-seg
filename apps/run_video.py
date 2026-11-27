@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import csv
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -39,7 +40,9 @@ CSV_FIELDS = ["track_id", "first_frame", "last_frame", "max_area_px", "max_area_
 # Overlay colours (BGR) and opacity — display only, not pipeline settings.
 ROAD_COLOUR = (80, 200, 80)
 POTHOLE_COLOUR = (40, 40, 230)
+SEVERITY_COLOURS = {"small": (0, 215, 255), "medium": (0, 140, 255), "large": (40, 40, 230)}
 OVERLAY_ALPHA = 0.4
+FONT = cv2.FONT_HERSHEY_SIMPLEX
 
 
 # ---------------------------------------------------------------- config
@@ -83,13 +86,20 @@ class PotholeLog:
     def __init__(self) -> None:
         self.records: dict[int, TrackRecord] = {}
 
-    def update(self, frame_idx: int, potholes: list[Pothole]) -> None:
-        """Add this frame's tracked potholes."""
+    def update(
+        self,
+        frame_idx: int,
+        potholes: list[Pothole],
+        first_seen: Callable[[int], int] | None = None,
+    ) -> None:
+        """Add this frame's tracked potholes. `first_seen(track_id)` gives a new track's
+        first frame (the tracker's, which is earlier than the frame it got its ID)."""
         for p in potholes:
             rec = self.records.get(p.track_id)
             if rec is None:
+                first = first_seen(p.track_id) if first_seen else frame_idx
                 self.records[p.track_id] = TrackRecord(
-                    p.track_id, frame_idx, frame_idx, p.area_px, p.area_m2, p.severity
+                    p.track_id, first, frame_idx, p.area_px, p.area_m2, p.severity
                 )
                 continue
             rec.last_frame = frame_idx
@@ -118,34 +128,40 @@ def _tint(image: np.ndarray, mask: np.ndarray, colour: tuple[int, int, int]) -> 
     )
 
 
+def _label(image: np.ndarray, text: str, org: tuple[int, int], colour: tuple[int, int, int],
+           scale: float = 0.5) -> None:  # fmt: skip
+    """Text on a filled box (dark text on light colours); `org` is the box's bottom-left."""
+    (tw, th), base = cv2.getTextSize(text, FONT, scale, 1)
+    x, y = max(0, org[0]), max(th + base + 2, org[1])
+    cv2.rectangle(image, (x, y - th - base - 4), (x + tw + 6, y), colour, cv2.FILLED)
+    b, g, r = colour
+    ink = (20, 20, 20) if 0.114 * b + 0.587 * g + 0.299 * r > 150 else (255, 255, 255)
+    cv2.putText(image, text, (x + 3, y - base - 1), FONT, scale, ink, 1, cv2.LINE_AA)
+
+
 def draw_overlay(
     frame: np.ndarray, seg: Segmentation, potholes: list[Pothole], fps: float | None
 ) -> np.ndarray:
-    """Return a copy of `frame` with road tint, pothole outlines, labels and FPS."""
+    """Return a copy of `frame` with road tint, potholes coloured by severity, labels,
+    a legend and the FPS."""
     out = frame.copy()
     if seg.road_mask is not None:
         _tint(out, seg.road_mask, ROAD_COLOUR)
     for p in potholes:
-        _tint(out, p.mask, POTHOLE_COLOUR)
+        colour = SEVERITY_COLOURS.get(p.severity, POTHOLE_COLOUR)
+        _tint(out, p.mask, colour)
         contours, _ = cv2.findContours(
             p.mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
-        cv2.drawContours(out, contours, -1, POTHOLE_COLOUR, 2)
-        x0, y0 = p.bbox_xyxy[:2]
-        cv2.putText(
-            out,
-            f"#{p.track_id} {p.severity}",
-            (x0, max(12, y0 - 6)),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.5,
-            (255, 255, 255),
-            1,
-            cv2.LINE_AA,
-        )
+        cv2.drawContours(out, contours, -1, colour, 2)
+        _label(out, f"#{p.track_id} {p.severity}", (p.bbox_xyxy[0], p.bbox_xyxy[1] - 4), colour)
+
+    x = out.shape[1] - 10  # legend, top right, right-aligned
+    for i, (name, colour) in enumerate([("road", ROAD_COLOUR), *SEVERITY_COLOURS.items()]):
+        (tw, _), _ = cv2.getTextSize(name, FONT, 0.5, 1)
+        _label(out, name, (x - tw - 6, 26 + 22 * i), colour)
     if fps is not None:
-        cv2.putText(
-            out, f"{fps:5.1f} FPS", (10, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2
-        )
+        _label(out, f"{fps:4.1f} FPS (CPU)", (10, 30), (40, 40, 40), scale=0.7)
     return out
 
 
@@ -193,7 +209,7 @@ def run(
             inst = 1.0 / max(elapsed, 1e-6)
             fps = inst if fps is None else 0.9 * fps + 0.1 * inst
 
-            log.update(frame_idx, potholes)
+            log.update(frame_idx, potholes, first_seen=tracker.first_seen)
             out = draw_overlay(frame, seg, potholes, fps)
 
             if save_path is not None:

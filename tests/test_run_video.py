@@ -77,7 +77,7 @@ def test_run_end_to_end_on_video_file(tmp_path: Path, fake_model: FakeModel) -> 
     assert list(log.records) == [1]  # the same pothole in every frame: one track
     assert csv_path.exists() and save_path.exists() and save_path.stat().st_size > 0
     rows = list(csv.DictReader(csv_path.open()))
-    assert [(r["first_frame"], r["last_frame"]) for r in rows] == [("1", "5")]  # ID from frame 2
+    assert [(r["first_frame"], r["last_frame"]) for r in rows] == [("0", "5")]  # seen from frame 0
 
 
 def test_run_respects_max_frames(tmp_path: Path, fake_model: FakeModel) -> None:

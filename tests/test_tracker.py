@@ -133,3 +133,13 @@ def test_empty_frame_returns_empty_list() -> None:
 def test_rejects_bad_settings(kwargs: dict) -> None:
     with pytest.raises(ValueError):
         PotholeTracker(**kwargs)
+
+
+def test_first_seen_is_the_frame_before_confirmation() -> None:
+    t = PotholeTracker(min_hits=3)
+    _ids(t, [])  # frame 0: nothing
+    for k in range(3):  # frames 1-3: ID given on frame 3
+        ids = _ids(t, [_pothole(100, 100 + 2 * k)])
+    assert ids == [1] and t.first_seen(1) == 1
+    with pytest.raises(KeyError):
+        t.first_seen(99)

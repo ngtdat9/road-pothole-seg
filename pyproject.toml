@@ -19,8 +19,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-demo = ["pyyaml>=6"]   # apps/ only; the package itself never reads YAML
-dev = ["pytest>=8", "ruff>=0.6", "pyyaml>=6"]
+demo = ["pyyaml>=6", "pillow>=10"]   # apps/ only (YAML config, GIF); the package never reads YAML
+dev = ["pytest>=8", "ruff>=0.6", "pyyaml>=6", "pillow>=10"]
 train = ["ultralytics==8.4.211", "onnx==1.23.2", "onnxslim==0.1.99", "onnxruntime>=1.17", "pyyaml>=6"]  # Colab training + Mac export; pinned
 
 [tool.setuptools.packages.find]

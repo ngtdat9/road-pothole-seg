@@ -115,6 +115,7 @@ class _Track:
     hits: int = 1
     track_id: int = -1  # -1 until confirmed
     lost_for: int = 0  # frames since the last match
+    first_frame: int = 0  # update() call (0-based) that first saw it
 
     @property
     def confirmed(self) -> bool:
@@ -159,6 +160,8 @@ class PotholeTracker:
         self.max_lost_frames = math.ceil(lost_seconds * frame_rate)
         self._tracks: list[_Track] = []
         self._next_id = 1
+        self._frame = -1  # index of the current update() call
+        self._first_seen: dict[int, int] = {}  # track_id -> first frame seen
 
     def update(self, potholes: list[Pothole]) -> list[Pothole]:
         """Return copies of the potholes that belong to a confirmed track, with `track_id` set.
@@ -167,6 +170,7 @@ class PotholeTracker:
         `min_hits` frames for an ID, and low-score ones that continue no track are dropped.
         Order follows the input; the inputs are not changed.
         """
+        self._frame += 1
         for t in self._tracks:
             t.kf.predict()
         boxes = np.array([p.bbox_xyxy for p in potholes], dtype=float).reshape(-1, 4)
@@ -204,7 +208,7 @@ class PotholeTracker:
         gone |= {id(t) for t in missed if t.lost_for > self.max_lost_frames}
         self._tracks = [t for t in self._tracks if id(t) not in gone]
         for i in new:
-            t = _Track(KalmanBox(to_xyah(potholes[i].bbox_xyxy)))
+            t = _Track(KalmanBox(to_xyah(potholes[i].bbox_xyxy)), first_frame=self._frame)
             self._tracks.append(t)
             matched[i] = t
 
@@ -212,9 +216,17 @@ class PotholeTracker:
             t = matched[i]
             if not t.confirmed and t.hits >= self.min_hits:
                 t.track_id = self._next_id
+                self._first_seen[t.track_id] = t.first_frame
                 self._next_id += 1
         return [
             dataclasses.replace(p, track_id=matched[i].track_id)
             for i, p in enumerate(potholes)
             if i in matched and matched[i].confirmed
         ]
+
+    def first_seen(self, track_id: int) -> int:
+        """Frame index (count of `update` calls, from 0) where this track was first detected.
+
+        Earlier than the frame where it got its ID when `min_hits` > 1. KeyError if unknown.
+        """
+        return self._first_seen[track_id]
