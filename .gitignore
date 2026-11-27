@@ -23,3 +23,7 @@ outputs/
 # Google Drive for desktop upload scratch
 .tmp.driveupload/
 .tmp.drivedownload/
+
+# local working notes, not published
+CLAUDE.md
+docs/plans/
