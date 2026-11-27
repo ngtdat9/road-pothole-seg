@@ -1,11 +1,13 @@
 """Turn raw pothole masks into measured `Pothole` objects.
 
-Area, box, centre and severity are real. Mask cleanup (removing specks, filling
-holes) is a pass-through for now and is added in Week 4.
+Each mask is cleaned first (`clean_mask`: drop specks, fill holes), then measured:
+box, centre, area in pixels, as a fraction of the frame and, for top-down frames
+with a known scale, in m²; severity comes from `SeverityBins`.
 """
 
 from __future__ import annotations
 
+import cv2
 import numpy as np
 
 from road_pothole_seg.types import Pothole, Segmentation, SeverityBins
@@ -21,20 +23,48 @@ def classify_severity(value: float, bounds: tuple[float, float]) -> str:
     return "large"
 
 
-def clean_mask(mask: np.ndarray) -> np.ndarray:
-    """Return a cleaned copy of a bool mask. Pass-through until Week 4."""
-    return mask.astype(bool, copy=True)
+def clean_mask(mask: np.ndarray, min_part: float = 0.1) -> np.ndarray:
+    """Return a cleaned copy of a bool mask: specks dropped, holes filled.
+
+    The largest connected part is always kept; other parts are kept only if they are
+    at least `min_part` times its area (a pothole can be split by a crack or a
+    reflection). Holes (background not connected to the mask's box border) are filled,
+    e.g. a water reflection inside a pothole. Works on the mask's bounding box only.
+    """
+    if not 0.0 <= min_part <= 1.0:
+        raise ValueError(f"min_part must be in [0, 1], got {min_part}")
+    out = np.zeros(mask.shape, dtype=bool)
+    ys, xs = np.nonzero(mask)
+    if xs.size == 0:
+        return out
+    y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+    crop = mask[y0:y1, x0:x1].astype(np.uint8)
+
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(crop, connectivity=8)
+    areas = stats[1:, cv2.CC_STAT_AREA]  # label 0 is background
+    keep = 1 + np.flatnonzero(areas >= min_part * areas.max())
+    kept = np.isin(labels, keep)
+
+    # Fill holes: flood the background from a 1 px frame around the crop.
+    padded = np.pad(kept.astype(np.uint8), 1)
+    flood = padded.copy()
+    cv2.floodFill(flood, None, (0, 0), 1)  # reaches all background connected to the border
+    filled = (padded | (1 - flood)).astype(bool)[1:-1, 1:-1]
+    out[y0:y1, x0:x1] = filled
+    return out
 
 
 def analyse_potholes(
     seg: Segmentation,
     metres_per_px: float | None = None,
     severity_bins: SeverityBins | None = None,
+    min_part: float = 0.1,
 ) -> list[Pothole]:
     """Measure each pothole mask: box, centre, area (px, frame fraction, optional m²), severity.
 
     `metres_per_px` assumes a top-down camera; leave it None for perspective (dashcam) frames.
-    Empty masks are dropped. `track_id` is -1 until `PotholeTracker` assigns one.
+    Masks are cleaned with `clean_mask(mask, min_part)` first. Empty masks are dropped.
+    `track_id` is -1 until `PotholeTracker` assigns one.
     """
     if metres_per_px is not None and metres_per_px <= 0:
         raise ValueError(f"metres_per_px must be positive, got {metres_per_px}")
@@ -42,7 +72,7 @@ def analyse_potholes(
 
     potholes: list[Pothole] = []
     for raw_mask, score in zip(seg.pothole_masks, seg.scores, strict=True):
-        mask = clean_mask(raw_mask)
+        mask = clean_mask(raw_mask, min_part)
         ys, xs = np.nonzero(mask)
         if xs.size == 0:
             continue

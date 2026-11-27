@@ -47,12 +47,13 @@ class Pothole:
 class SeverityBins:
     """Upper bounds of "small" and "medium"; anything above the second bound is "large".
 
-    `frac` bins apply to `area_frac` and are used when no `metres_per_px` is given.
+    `frac` bins apply to `area_frac` and are used when no `metres_per_px` is given; the
+    defaults are the tertiles of labelled pothole area in merged-v1 train (equal thirds).
     `m2` bins apply to `area_m2` and are used when it is. Defaults must equal
     `configs/pipeline.yaml`.
     """
 
-    frac: tuple[float, float] = (0.002, 0.01)
+    frac: tuple[float, float] = (0.0012, 0.0066)
     m2: tuple[float, float] = (0.1, 0.5)
 
     def __post_init__(self) -> None:

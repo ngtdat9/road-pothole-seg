@@ -89,3 +89,8 @@ post-processing; 480 px costs 0.026 pothole mAP50 and 320 px 0.127, to weigh aga
   `iou` and `fill_road` (road = road ∪ potholes; all-False road mask when none is found).
   Matches Ultralytics on the same ONNX file (mask IoU 0.996, identical scores, 80 frames
   in 4 shapes). ONNX val equals best.pt with square input, so the export is lossless.
+- 2026-11-27: `clean_mask`: keeps the largest part plus parts >= 0.1 x its area, fills
+  enclosed holes. On val (ONNX 640) it changes 37 pothole masks; against the labels 21 get
+  closer, 5 further, mean IoU unchanged (0.780): a safe tidy-up, not an accuracy gain.
+  Severity `frac` bins set to the tertiles of labelled pothole area in train
+  (0.12% and 0.66% of the frame) instead of the Week 1 placeholders (0.2% / 1%).

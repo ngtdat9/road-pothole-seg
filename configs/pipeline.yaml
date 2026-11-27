@@ -11,8 +11,11 @@ segmenter:
 
 severity:
   # Upper bounds of "small" and "medium"; anything above is "large".
-  frac: [0.002, 0.01]     # pothole area / frame area (placeholder until Week 2 data)
+  frac: [0.0012, 0.0066]  # pothole area / frame area: tertiles of merged-v1 train labels
   m2: [0.1, 0.5]          # square metres, used only when metres_per_px is given
+
+postprocess:
+  min_part: 0.1           # clean_mask: keep extra mask parts >= 0.1 x the largest part
 
 tracker:
   frame_rate: 30.0

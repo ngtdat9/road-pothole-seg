@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 import yaml
 
-from road_pothole_seg import PotholeTracker, Segmenter, SeverityBins
+from road_pothole_seg import PotholeTracker, Segmenter, SeverityBins, analyse_potholes
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "configs" / "pipeline.yaml"
 
@@ -23,7 +23,7 @@ def config() -> dict[str, Any]:
 
 
 def test_config_has_expected_sections(config: dict[str, Any]) -> None:
-    assert {"segmenter", "severity", "tracker"} <= config.keys()
+    assert {"segmenter", "severity", "postprocess", "tracker"} <= config.keys()
 
 
 def test_severity_bins_match_config(config: dict[str, Any]) -> None:
@@ -42,6 +42,11 @@ def _defaults(func: Any) -> dict[str, Any]:
 
 def test_segmenter_defaults_match_config(config: dict[str, Any]) -> None:
     assert _defaults(Segmenter.__init__) == config["segmenter"]
+
+
+def test_postprocess_defaults_match_config(config: dict[str, Any]) -> None:
+    tunable = {k: v for k, v in _defaults(analyse_potholes).items() if v is not None}
+    assert tunable == config["postprocess"]  # metres_per_px and severity_bins are per-call
 
 
 def test_tracker_defaults_match_config(config: dict[str, Any]) -> None:

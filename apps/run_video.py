@@ -170,7 +170,8 @@ def run(
     max_frames: int | None = None,
 ) -> PotholeLog:
     """Process `source` frame by frame and return the pothole log."""
-    segmenter, tracker, bins = build_pipeline(load_config(config_path), model_path)
+    config = load_config(config_path)
+    segmenter, tracker, bins = build_pipeline(config, model_path)
     cap = open_source(source)
     writer: cv2.VideoWriter | None = None
     log = PotholeLog()
@@ -185,7 +186,8 @@ def run(
 
             start = time.perf_counter()
             seg = segmenter(frame)
-            potholes = tracker.update(analyse_potholes(seg, severity_bins=bins))
+            measured = analyse_potholes(seg, severity_bins=bins, **config["postprocess"])
+            potholes = tracker.update(measured)
             elapsed = time.perf_counter() - start
             # Pipeline FPS (excludes reading and drawing), smoothed so the number is readable.
             inst = 1.0 / max(elapsed, 1e-6)
