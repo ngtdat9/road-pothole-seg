@@ -1,0 +1,137 @@
+{
+  "date": "2026-11-27",
+  "weights": "baseline.pt",
+  "weights_sha256": "fe82bd5f5d0cb1d11bbdd732558373f3901bad9b9713d696970733a9672679ca",
+  "commit": "4bdb1cf",
+  "ultralytics": "8.4.211",
+  "onnx": "1.23.2",
+  "opset": 17,
+  "models": {
+    "640": {
+      "file": "baseline-640.onnx",
+      "sha256": "99d74eea66451394d8e6201bf62cb525b388e690cea1f8e90e53e6f376e686a2",
+      "inputs": {
+        "images": [
+          1,
+          3,
+          640,
+          640
+        ]
+      },
+      "outputs": {
+        "output0": [
+          1,
+          38,
+          8400
+        ],
+        "output1": [
+          1,
+          32,
+          160,
+          160
+        ]
+      },
+      "metadata": {
+        "args": "{'data': None, 'batch': 1, 'fraction': 1.0, 'quantize': None, 'nms': None, 'dynamic': False, 'simplify': True, 'opset': 17}",
+        "author": "Ultralytics",
+        "batch": "1",
+        "channels": "3",
+        "date": "2026-11-27T11:47:43.894510+09:00",
+        "description": "Ultralytics YOLO26n-seg model trained on /content/merged-v1/data_baseline.yaml",
+        "docs": "https://docs.ultralytics.com",
+        "end2end": "False",
+        "head": "Segment26",
+        "imgsz": "[640, 640]",
+        "license": "AGPL-3.0 License (https://ultralytics.com/license)",
+        "names": "{0: 'road', 1: 'pothole'}",
+        "stride": "32",
+        "task": "segment",
+        "version": "8.4.211"
+      }
+    },
+    "480": {
+      "file": "baseline-480.onnx",
+      "sha256": "d5ae307ae6ce505c50de84cb4ec35d995b92f3df8274e6408b98c0a3f5d35db5",
+      "inputs": {
+        "images": [
+          1,
+          3,
+          480,
+          480
+        ]
+      },
+      "outputs": {
+        "output0": [
+          1,
+          38,
+          4725
+        ],
+        "output1": [
+          1,
+          32,
+          120,
+          120
+        ]
+      },
+      "metadata": {
+        "args": "{'data': None, 'batch': 1, 'fraction': 1.0, 'quantize': None, 'nms': None, 'dynamic': False, 'simplify': True, 'opset': 17}",
+        "author": "Ultralytics",
+        "batch": "1",
+        "channels": "3",
+        "date": "2026-11-27T11:47:47.629183+09:00",
+        "description": "Ultralytics YOLO26n-seg model trained on /content/merged-v1/data_baseline.yaml",
+        "docs": "https://docs.ultralytics.com",
+        "end2end": "False",
+        "head": "Segment26",
+        "imgsz": "[480, 480]",
+        "license": "AGPL-3.0 License (https://ultralytics.com/license)",
+        "names": "{0: 'road', 1: 'pothole'}",
+        "stride": "32",
+        "task": "segment",
+        "version": "8.4.211"
+      }
+    },
+    "320": {
+      "file": "baseline-320.onnx",
+      "sha256": "6fac055138989ce1e485063b50cee8a1d51bbc33c569b48980e0587ce40244da",
+      "inputs": {
+        "images": [
+          1,
+          3,
+          320,
+          320
+        ]
+      },
+      "outputs": {
+        "output0": [
+          1,
+          38,
+          2100
+        ],
+        "output1": [
+          1,
+          32,
+          80,
+          80
+        ]
+      },
+      "metadata": {
+        "args": "{'data': None, 'batch': 1, 'fraction': 1.0, 'quantize': None, 'nms': None, 'dynamic': False, 'simplify': True, 'opset': 17}",
+        "author": "Ultralytics",
+        "batch": "1",
+        "channels": "3",
+        "date": "2026-11-27T11:47:48.697914+09:00",
+        "description": "Ultralytics YOLO26n-seg model trained on /content/merged-v1/data_baseline.yaml",
+        "docs": "https://docs.ultralytics.com",
+        "end2end": "False",
+        "head": "Segment26",
+        "imgsz": "[320, 320]",
+        "license": "AGPL-3.0 License (https://ultralytics.com/license)",
+        "names": "{0: 'road', 1: 'pothole'}",
+        "stride": "32",
+        "task": "segment",
+        "version": "8.4.211"
+      }
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "note": "ONNX models (square letterbox, batch 1) on val via evaluate.py",
+  "640": {
+    "weights": "baseline-640.onnx",
+    "commit": "946d823",
+    "pothole": {
+      "map50": 0.7152,
+      "map50_95": 0.402
+    },
+    "road": {
+      "map50": 0.9529,
+      "map50_95": 0.8029
+    }
+  },
+  "480": {
+    "weights": "baseline-480.onnx",
+    "commit": "946d823",
+    "pothole": {
+      "map50": 0.683,
+      "map50_95": 0.3624
+    },
+    "road": {
+      "map50": 0.9612,
+      "map50_95": 0.8083
+    }
+  },
+  "320": {
+    "weights": "baseline-320.onnx",
+    "commit": "946d823",
+    "pothole": {
+      "map50": 0.6116,
+      "map50_95": 0.3071
+    },
+    "road": {
+      "map50": 0.9446,
+      "map50_95": 0.7702
+    }
+  }
+}

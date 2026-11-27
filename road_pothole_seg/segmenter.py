@@ -6,8 +6,9 @@ training framework (checked by training/scripts/check_onnx.py):
 - output0 (1, 4 + classes + 32, anchors): centre-xywh boxes in input pixels, class
   scores already sigmoid, then mask coefficients; output1 (1, 32, mh, mw): prototypes,
 - best class per anchor, `conf` filter, class-aware NMS at `iou`, at most 300 kept,
-- mask = sigmoid(coefficients @ prototypes) upsampled to the input, padding removed,
-  resized to the frame, thresholded, then cropped to the box.
+- mask = sigmoid(coefficients @ prototypes) upsampled to the input, thresholded,
+  cropped to the box, then the padding is removed and the binary mask is resized to
+  the frame (bilinear, > 0.5).
 """
 
 from __future__ import annotations
@@ -111,7 +112,7 @@ def select_detections(
 
 
 def _resize_stack(stack: np.ndarray, width: int, height: int) -> np.ndarray:
-    """Bilinear resize of an HxWxN float stack (any N) to height x width x N."""
+    """Bilinear resize of an HxWxN stack (any N) to height x width x N."""
     parts = [
         cv2.resize(stack[:, :, i : i + CV_MAX_CHANNELS], (width, height),
                    interpolation=cv2.INTER_LINEAR).reshape(height, width, -1)
@@ -128,28 +129,32 @@ def decode_masks(
     size: int,
     frame_hw: tuple[int, int],
     mask_threshold: float,
-) -> tuple[np.ndarray, np.ndarray]:
-    """N masks (N x H x W bool, frame size) and N boxes (frame pixels, xyxy float)."""
+) -> np.ndarray:
+    """N x H x W bool masks at frame size, in Ultralytics' order of steps.
+
+    Logits are upsampled to the input size, thresholded, cropped to their box (input
+    pixels), then the padding is removed and the binary masks are resized to the frame.
+    """
     h, w = frame_hw
-    r, new_w, new_h, left, top = params
-    frame_boxes = (boxes - [left, top, left, top]) / r
-    frame_boxes = frame_boxes.clip(0, [w, h, w, h])
     if len(coefs) == 0:
-        return np.zeros((0, h, w), dtype=bool), frame_boxes
+        return np.zeros((0, h, w), dtype=bool)
+    _, new_w, new_h, left, top = params
 
     c, mh, mw = protos.shape
     logits = (coefs @ protos.reshape(c, -1)).reshape(-1, mh, mw).transpose(1, 2, 0)
-    logits = _resize_stack(np.ascontiguousarray(logits), size, size)  # to input size
-    logits = logits[top : top + new_h, left : left + new_w]  # drop the padding
-    logits = _resize_stack(np.ascontiguousarray(logits), w, h)  # to frame size
-
+    logits = _resize_stack(np.ascontiguousarray(logits), size, size)  # input size, HxWxN
     t = min(max(mask_threshold, 1e-6), 1 - 1e-6)
-    masks = (logits > math.log(t / (1 - t))).transpose(2, 0, 1)  # sigmoid(x) > t
-    cols, rows = np.arange(w), np.arange(h)
-    for m, (x1, y1, x2, y2) in zip(masks, frame_boxes, strict=True):
-        m[:, (cols < x1) | (cols >= x2)] = False
-        m[(rows < y1) | (rows >= y2), :] = False
-    return masks, frame_boxes
+    binary = (logits > math.log(t / (1 - t))).astype(np.uint8) * 255  # sigmoid(x) > t
+
+    idx = np.arange(size, dtype=np.float32)
+    x1, y1, x2, y2 = boxes.T
+    binary *= ((idx[:, None] >= y1) & (idx[:, None] < y2))[:, None, :]  # rows inside the box
+    binary *= ((idx[:, None] >= x1) & (idx[:, None] < x2))[None, :, :]  # columns inside
+
+    binary = np.ascontiguousarray(binary[top : top + new_h, left : left + new_w])  # no padding
+    if (new_w, new_h) != (w, h):
+        binary = _resize_stack(binary, w, h)
+    return (binary > 127).transpose(2, 0, 1)  # bilinear on 0/255, then > 0.5
 
 
 def class_names(meta: dict[str, str]) -> list[str]:
@@ -226,7 +231,7 @@ class Segmenter:
         boxes, scores, classes, coefs = select_detections(
             output0[0], len(self.names), self.conf, self.iou
         )
-        masks, _ = decode_masks(
+        masks = decode_masks(
             coefs, protos[0], boxes, params, self.input_size, (h, w), self.mask_threshold
         )
         nonempty = masks.any(axis=(1, 2))

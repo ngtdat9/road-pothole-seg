@@ -77,3 +77,15 @@ not settings. Test confirms val (pothole mAP50 0.720, road mAP50-95 0.806). Leak
 measured (+0.07 mAP50 from a naive merge). Failure analysis in `docs/failures.md`.
 Carried to Week 4: export ONNX at 320/480/640; fill potholes into the road mask in
 post-processing; 480 px costs 0.026 pothole mAP50 and 320 px 0.127, to weigh against FPS.
+
+## Week 4 — package: segmenter, post-processing, tracking
+
+- 2026-11-27: exported the baseline to ONNX at 640/480/320 (`export_onnx.py`, opset 17, on
+  the Mac). The model is not end-to-end (`end2end=False`), so the output is raw (38 x
+  anchors) and the package does its own class-aware NMS (IoU 0.5, Ultralytics' predict
+  default). ONNX metadata says the weights are AGPL-3.0 (Ultralytics), to settle before
+  the v1.0 release licence.
+- 2026-11-27: real `Segmenter` on ONNX Runtime: letterbox, NMS, mask decoding; new optional
+  `iou` and `fill_road` (road = road ∪ potholes; all-False road mask when none is found).
+  Matches Ultralytics on the same ONNX file (mask IoU 0.996, identical scores, 80 frames
+  in 4 shapes). ONNX val equals best.pt with square input, so the export is lossless.

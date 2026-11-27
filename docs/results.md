@@ -21,6 +21,9 @@ Mask mAP from Ultralytics; test-split numbers appear only in the final evaluatio
 | 2026-11-26 | baseline TEST @320 | yolo26n-seg | train.txt | 100 | 320 | 0.593 | 0.303 | 0.971 | 0.809 | 83cdde2 | Final test at 320: pothole −0.127 mAP50; road holds |
 | 2026-11-26 | naive on naive test | yolo26n-seg | merged-v1-naive | 100 | 640 | 0.780 | 0.454 | 0.981 | 0.819 | 83cdde2 | Exp 1: the score a naive merge would report |
 | 2026-11-26 | naive on clean test | yolo26n-seg | merged-v1-naive | 100 | 640 | 0.714 | 0.399 | 0.975 | 0.800 | 83cdde2 | Exp 1: same model on merged-v1's test: −0.067 mAP50. Equal to baseline (0.720), so duplicates add no real skill, only inflate the reported score |
+| 2026-11-27 | baseline ONNX @640 | yolo26n-seg | train.txt | 100 | 640 | 0.715 | 0.402 | 0.953 | 0.803 | 946d823 | Exported model on val (square input, batch 1). Equal to best.pt with square input (0.715 / 0.402 / 0.803), so the export is lossless; −0.007 mAP50 vs the batched rect val above comes from square padding |
+| 2026-11-27 | baseline ONNX @480 | yolo26n-seg | train.txt | 100 | 480 | 0.683 | 0.362 | 0.961 | 0.808 | 946d823 | ONNX at 480 on val |
+| 2026-11-27 | baseline ONNX @320 | yolo26n-seg | train.txt | 100 | 320 | 0.612 | 0.307 | 0.945 | 0.770 | 946d823 | ONNX at 320 on val; best.pt with square input gives 0.612 / 0.307 / 0.770, identical |
 
 ## Experiment 1 — duplicate leakage (test, 640 px, pothole mask)
 
@@ -34,3 +37,21 @@ A naive merge overstates pothole mask mAP50 by 0.06–0.07 (about 9%) and mAP50-
 0.05 (13%). On the same clean test the two models are equal, so the extra duplicate
 images taught nothing new. Road barely moves (+0.02 on the leaky test), as road looks
 alike in every image.
+
+## ONNX export check (Week 4)
+
+`training/scripts/check_onnx.py` on 20 val images, each in 4 shapes (original, 16:9 crop,
+9:16 crop, 400x300), 80 frames, 640 px model. Details in `docs/runs/baseline/onnx_check.json`.
+
+| Package `Segmenter` vs | Potholes matched | Mean / min mask IoU | Max score diff | Unmatched (ours / ref) | Mean road IoU |
+|---|---|---|---|---|---|
+| Ultralytics, same ONNX file | 115 | **0.996** / 0.924 | 0.000 | 0 / 0 | 0.999 |
+| Ultralytics, best.pt | 105 | 0.977 / 0.774 | 0.116 | 10 / 1 | 0.985 |
+
+Against the same ONNX file the detections and scores are identical; the remaining mask
+difference is rounding at mask edges (lowest on the small 400x300 frames, 0.988). Against
+best.pt the input differs on non-square frames: PyTorch letterboxes to the smallest
+32-multiple rectangle, ONNX to a fixed square. This does not cost accuracy (val above:
+ONNX = best.pt with square input at 640 and 320). A first version that thresholded after
+resizing to the frame scored only 0.982 (small potholes grew by a row of pixels), so the
+package now follows Ultralytics' order: threshold at input size, crop to box, then resize.

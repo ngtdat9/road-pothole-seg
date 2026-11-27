@@ -1,0 +1,155 @@
+{
+  "onnx": "baseline-640.onnx",
+  "pt": "baseline.pt",
+  "images": 20,
+  "variants": [
+    "original",
+    "landscape",
+    "portrait",
+    "small"
+  ],
+  "segmenter": {
+    "input_size": null,
+    "conf": 0.25,
+    "mask_threshold": 0.5,
+    "iou": 0.5,
+    "fill_road": false
+  },
+  "min_iou": 0.98,
+  "max_unmatched_conf": 0.3,
+  "same_model": {
+    "frames": 80,
+    "matched": 115,
+    "mean_pothole_iou": 0.9957,
+    "min_pothole_iou": 0.9241,
+    "max_score_diff": 0.0,
+    "unmatched_ours": 0,
+    "unmatched_ref": 0,
+    "max_unmatched_score": 0.0,
+    "mean_road_iou": 0.9989,
+    "min_road_iou": 0.9867,
+    "passed": true,
+    "by_variant": {
+      "original": {
+        "frames": 20,
+        "matched": 32,
+        "mean_pothole_iou": 0.9988,
+        "min_pothole_iou": 0.9822,
+        "max_score_diff": 0.0,
+        "unmatched_ours": 0,
+        "unmatched_ref": 0,
+        "max_unmatched_score": 0.0,
+        "mean_road_iou": 0.9994,
+        "min_road_iou": 0.9912,
+        "passed": true
+      },
+      "landscape": {
+        "frames": 20,
+        "matched": 24,
+        "mean_pothole_iou": 0.9969,
+        "min_pothole_iou": 0.9493,
+        "max_score_diff": 0.0,
+        "unmatched_ours": 0,
+        "unmatched_ref": 0,
+        "max_unmatched_score": 0.0,
+        "mean_road_iou": 0.9994,
+        "min_road_iou": 0.9912,
+        "passed": true
+      },
+      "portrait": {
+        "frames": 20,
+        "matched": 29,
+        "mean_pothole_iou": 0.9994,
+        "min_pothole_iou": 0.9919,
+        "max_score_diff": 0.0,
+        "unmatched_ours": 0,
+        "unmatched_ref": 0,
+        "max_unmatched_score": 0.0,
+        "mean_road_iou": 0.9996,
+        "min_road_iou": 0.9958,
+        "passed": true
+      },
+      "small": {
+        "frames": 20,
+        "matched": 30,
+        "mean_pothole_iou": 0.9879,
+        "min_pothole_iou": 0.9241,
+        "max_score_diff": 0.0,
+        "unmatched_ours": 0,
+        "unmatched_ref": 0,
+        "max_unmatched_score": 0.0,
+        "mean_road_iou": 0.9974,
+        "min_road_iou": 0.9867,
+        "passed": true
+      }
+    }
+  },
+  "pytorch": {
+    "frames": 80,
+    "matched": 105,
+    "mean_pothole_iou": 0.977,
+    "min_pothole_iou": 0.7743,
+    "max_score_diff": 0.1157,
+    "unmatched_ours": 10,
+    "unmatched_ref": 1,
+    "max_unmatched_score": 0.3806,
+    "mean_road_iou": 0.9854,
+    "min_road_iou": 0.698,
+    "passed": false,
+    "by_variant": {
+      "original": {
+        "frames": 20,
+        "matched": 31,
+        "mean_pothole_iou": 0.9899,
+        "min_pothole_iou": 0.7743,
+        "max_score_diff": 0.0391,
+        "unmatched_ours": 1,
+        "unmatched_ref": 1,
+        "max_unmatched_score": 0.3086,
+        "mean_road_iou": 0.9967,
+        "min_road_iou": 0.972,
+        "passed": false
+      },
+      "landscape": {
+        "frames": 20,
+        "matched": 23,
+        "mean_pothole_iou": 0.9798,
+        "min_pothole_iou": 0.939,
+        "max_score_diff": 0.0598,
+        "unmatched_ours": 1,
+        "unmatched_ref": 0,
+        "max_unmatched_score": 0.2615,
+        "mean_road_iou": 0.9889,
+        "min_road_iou": 0.9463,
+        "passed": false
+      },
+      "portrait": {
+        "frames": 20,
+        "matched": 27,
+        "mean_pothole_iou": 0.9867,
+        "min_pothole_iou": 0.9106,
+        "max_score_diff": 0.088,
+        "unmatched_ours": 2,
+        "unmatched_ref": 0,
+        "max_unmatched_score": 0.2925,
+        "mean_road_iou": 0.975,
+        "min_road_iou": 0.698,
+        "passed": true
+      },
+      "small": {
+        "frames": 20,
+        "matched": 24,
+        "mean_pothole_iou": 0.9466,
+        "min_pothole_iou": 0.7964,
+        "max_score_diff": 0.1157,
+        "unmatched_ours": 6,
+        "unmatched_ref": 0,
+        "max_unmatched_score": 0.3806,
+        "mean_road_iou": 0.9811,
+        "min_road_iou": 0.9372,
+        "passed": false
+      }
+    }
+  },
+  "passed": true
+}

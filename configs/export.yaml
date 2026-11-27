@@ -8,3 +8,9 @@ export:
   opset: 17                 # onnxruntime >= 1.17 (pyproject floor) runs opset <= 20
   simplify: true            # onnxslim graph cleanup; outputs are unchanged
   out_dir: models
+
+check:                      # training/scripts/check_onnx.py: package vs Ultralytics
+  n_images: 20              # val images (seeded sample), each in 4 shapes
+  seed: 0
+  min_iou: 0.98             # mean matched pothole mask IoU vs Ultralytics on the same ONNX
+  max_unmatched_conf: 0.3   # no instance above this score may be found by only one side
