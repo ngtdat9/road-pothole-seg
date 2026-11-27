@@ -1,0 +1,10 @@
+# ONNX export of the chosen model (training/scripts/export_onnx.py, Mac, CPU, ~1 min).
+# Not training: Ultralytics only traces the network. Files are gitignored and published
+# as GitHub release assets in Week 5.
+
+export:
+  name: baseline            # output files: <out_dir>/<name>-<size>.onnx
+  sizes: [640, 480, 320]    # one fixed-shape model per input size (experiment 3)
+  opset: 17                 # onnxruntime >= 1.17 (pyproject floor) runs opset <= 20
+  simplify: true            # onnxslim graph cleanup; outputs are unchanged
+  out_dir: models
