@@ -1,0 +1,115 @@
+{
+  "date": "2026-11-27",
+  "name": "mac-m1-coreml",
+  "cpu": "Apple M1",
+  "logical_cpus": 8,
+  "os": "macOS-15.6.1-arm64-arm-64bit",
+  "python": "3.11.7",
+  "onnxruntime": "1.32.0",
+  "provider": "coreml",
+  "source": "4203311721-preview.mp4",
+  "frame_size": [
+    1280,
+    720
+  ],
+  "frames": 383,
+  "warmup": 10,
+  "sizes": {
+    "640": {
+      "preprocess": {
+        "median_ms": 1.93,
+        "p90_ms": 3.12
+      },
+      "inference": {
+        "median_ms": 12.99,
+        "p90_ms": 14.28
+      },
+      "postprocess": {
+        "median_ms": 3.36,
+        "p90_ms": 5.27
+      },
+      "analyse": {
+        "median_ms": 0.3,
+        "p90_ms": 0.92
+      },
+      "track": {
+        "median_ms": 0.15,
+        "p90_ms": 0.26
+      },
+      "total": {
+        "median_ms": 19.39,
+        "p90_ms": 22.68
+      },
+      "fps": 51.6,
+      "providers_used": [
+        "CoreMLExecutionProvider",
+        "CPUExecutionProvider"
+      ],
+      "mean_potholes_per_frame": 0.98
+    },
+    "480": {
+      "preprocess": {
+        "median_ms": 1.52,
+        "p90_ms": 2.02
+      },
+      "inference": {
+        "median_ms": 8.25,
+        "p90_ms": 8.55
+      },
+      "postprocess": {
+        "median_ms": 2.47,
+        "p90_ms": 3.96
+      },
+      "analyse": {
+        "median_ms": 0.01,
+        "p90_ms": 0.85
+      },
+      "track": {
+        "median_ms": 0.12,
+        "p90_ms": 0.22
+      },
+      "total": {
+        "median_ms": 12.87,
+        "p90_ms": 15.37
+      },
+      "fps": 77.7,
+      "providers_used": [
+        "CoreMLExecutionProvider",
+        "CPUExecutionProvider"
+      ],
+      "mean_potholes_per_frame": 0.74
+    },
+    "320": {
+      "preprocess": {
+        "median_ms": 0.99,
+        "p90_ms": 2.89
+      },
+      "inference": {
+        "median_ms": 4.68,
+        "p90_ms": 6.91
+      },
+      "postprocess": {
+        "median_ms": 1.96,
+        "p90_ms": 3.23
+      },
+      "analyse": {
+        "median_ms": 0.01,
+        "p90_ms": 1.22
+      },
+      "track": {
+        "median_ms": 0.09,
+        "p90_ms": 0.23
+      },
+      "total": {
+        "median_ms": 8.65,
+        "p90_ms": 13.02
+      },
+      "fps": 115.6,
+      "providers_used": [
+        "CoreMLExecutionProvider",
+        "CPUExecutionProvider"
+      ],
+      "mean_potholes_per_frame": 0.45
+    }
+  }
+}

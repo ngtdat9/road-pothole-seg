@@ -119,3 +119,17 @@ Ultralytics on the same ONNX (mask IoU 0.996, identical scores), `clean_mask`, s
 bins from data, numpy ByteTrack. Dependency change: supervision removed. Open for
 Week 5: real demo footage, Mac + PC benchmark, README, and the **licence**: Ultralytics
 marks the exported weights AGPL-3.0, which conflicts with releasing them under MIT.
+
+## Week 5 — demo, benchmark, release
+
+- 2026-11-27: demo from a road video (`apps/make_demo.py` -> `docs/figures/demo.gif`, 6 s,
+  600 px, 6.3 MB). Overlay: potholes coloured by severity, legend, readable labels. CSV
+  `first_frame` now uses the tracker's first sighting (`PotholeTracker.first_seen`).
+- 2026-11-27: `benchmarks/fps.py` on the Mac (whole 383-frame clip at 1280x720) first gave
+  14.4 FPS at 640, under the 15 FPS target: mask decoding 12.4 ms and measuring 5.1 ms
+  per frame on top of 49 ms inference. Fixes: the final mask resize is done per mask
+  around its box with exact float bilinear weights, and mask extents use row/column
+  `any`. Now 4.0 + 0.3 ms, 16.7 FPS at 640. Masks also match Ultralytics more closely
+  (check_onnx mean IoU 0.996 -> 1.000), as the old code rounded in uint8. ONNX Runtime's
+  default thread count is fastest on the M1 (4 threads +5%, 8 threads +37% slower).
+  CoreML provider (Mac only, for reference): 31.5 FPS at 640.

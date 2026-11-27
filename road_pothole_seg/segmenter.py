@@ -121,6 +121,28 @@ def _resize_stack(stack: np.ndarray, width: int, height: int) -> np.ndarray:
     return np.concatenate(parts, axis=2)
 
 
+def interp_weights(dst_lo: int, dst_hi: int, scale: float, src_n: int, src_lo: int,
+                   src_hi: int) -> np.ndarray:  # fmt: skip
+    """Bilinear weights (half-pixel centres, edge clamped, as torch/cv2) from source
+    pixels [src_lo, src_hi) of a length-`src_n` axis to destination pixels [dst_lo, dst_hi),
+    where destination = source / `scale`. Source pixels outside the range are taken as 0."""
+    s = np.maximum((np.arange(dst_lo, dst_hi) + 0.5) * scale - 0.5, 0.0)
+    i0 = np.minimum(np.floor(s).astype(np.int64), src_n - 1)
+    i1 = np.minimum(i0 + 1, src_n - 1)
+    lam = s - i0
+    weights = np.zeros((dst_hi - dst_lo, src_hi - src_lo), dtype=np.float32)
+    rows = np.arange(dst_hi - dst_lo)
+    for idx, wgt in ((i0, 1.0 - lam), (i1, lam)):
+        ok = (idx >= src_lo) & (idx < src_hi)
+        np.add.at(weights, (rows[ok], idx[ok] - src_lo), wgt[ok])
+    return weights
+
+
+def _span(lo: float, hi: float, n: int) -> tuple[int, int]:
+    """Integer pixels p with lo <= p < hi, clipped to [0, n)."""
+    return max(math.ceil(lo), 0), min(math.ceil(hi), n)
+
+
 def decode_masks(
     coefs: np.ndarray,
     protos: np.ndarray,
@@ -133,28 +155,38 @@ def decode_masks(
     """N x H x W bool masks at frame size, in Ultralytics' order of steps.
 
     Logits are upsampled to the input size, thresholded, cropped to their box (input
-    pixels), then the padding is removed and the binary masks are resized to the frame.
+    pixels), then the padding is removed and the binary masks are resized to the frame
+    (bilinear, > 0.5). The last resize is done per mask, only around its box.
     """
     h, w = frame_hw
+    masks = np.zeros((len(coefs), h, w), dtype=bool)
     if len(coefs) == 0:
-        return np.zeros((0, h, w), dtype=bool)
+        return masks
     _, new_w, new_h, left, top = params
 
     c, mh, mw = protos.shape
     logits = (coefs @ protos.reshape(c, -1)).reshape(-1, mh, mw).transpose(1, 2, 0)
     logits = _resize_stack(np.ascontiguousarray(logits), size, size)  # input size, HxWxN
     t = min(max(mask_threshold, 1e-6), 1 - 1e-6)
-    binary = (logits > math.log(t / (1 - t))).astype(np.uint8) * 255  # sigmoid(x) > t
+    binary = logits > math.log(t / (1 - t))  # sigmoid(x) > t
+    sx, sy = new_w / w, new_h / h  # content pixels per frame pixel
 
-    idx = np.arange(size, dtype=np.float32)
-    x1, y1, x2, y2 = boxes.T
-    binary *= ((idx[:, None] >= y1) & (idx[:, None] < y2))[:, None, :]  # rows inside the box
-    binary *= ((idx[:, None] >= x1) & (idx[:, None] < x2))[None, :, :]  # columns inside
-
-    binary = np.ascontiguousarray(binary[top : top + new_h, left : left + new_w])  # no padding
-    if (new_w, new_h) != (w, h):
-        binary = _resize_stack(binary, w, h)
-    return (binary > 127).transpose(2, 0, 1)  # bilinear on 0/255, then > 0.5
+    for n, (x1, y1, x2, y2) in enumerate(boxes):
+        c0, c1 = _span(x1 - left, x2 - left, new_w)  # box ∩ content, content coords
+        r0, r1 = _span(y1 - top, y2 - top, new_h)
+        if c0 >= c1 or r0 >= r1:
+            continue
+        patch = binary[top + r0 : top + r1, left + c0 : left + c1, n]
+        if (new_w, new_h) == (w, h):
+            masks[n, r0:r1, c0:c1] = patch
+            continue
+        # Frame pixels whose bilinear sources can touch the patch (one source px margin).
+        u0, u1 = max(math.floor((c0 - 1) / sx) - 1, 0), min(math.ceil((c1 + 1) / sx) + 1, w)
+        v0, v1 = max(math.floor((r0 - 1) / sy) - 1, 0), min(math.ceil((r1 + 1) / sy) + 1, h)
+        wx = interp_weights(u0, u1, sx, new_w, c0, c1)
+        wy = interp_weights(v0, v1, sy, new_h, r0, r1)
+        masks[n, v0:v1, u0:u1] = (wy @ patch.astype(np.float32) @ wx.T) > 0.5
+    return masks
 
 
 def class_names(meta: dict[str, str]) -> list[str]:
@@ -175,7 +207,9 @@ class Segmenter:
     `iou` is the NMS overlap above which the weaker of two same-class boxes is dropped.
     With `fill_road`, potholes are added to the road mask (road = road ∪ potholes), so
     the road has no holes where it is damaged. With no road found, the road mask is
-    all False. After each call, `last_timings_ms` holds per-stage latency.
+    all False. `providers` are ONNX Runtime execution providers in order of preference
+    (default CPU only; e.g. ["OpenVINOExecutionProvider", "CPUExecutionProvider"] with the
+    onnxruntime-openvino package). After each call, `last_timings_ms` holds per-stage latency.
     """
 
     def __init__(
@@ -186,6 +220,7 @@ class Segmenter:
         mask_threshold: float = 0.5,
         iou: float = 0.5,
         fill_road: bool = True,
+        providers: list[str] | None = None,
     ) -> None:
         for name, value in (("conf", conf), ("mask_threshold", mask_threshold), ("iou", iou)):
             if not 0.0 <= value <= 1.0:
@@ -193,7 +228,9 @@ class Segmenter:
         if input_size is not None and input_size <= 0:
             raise ValueError(f"input_size must be positive, got {input_size}")
 
-        self.session = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+        self.session = ort.InferenceSession(
+            model_path, providers=providers or ["CPUExecutionProvider"]
+        )
         inp = self.session.get_inputs()[0]
         model_h, model_w = inp.shape[2], inp.shape[3]
         if not (isinstance(model_h, int) and isinstance(model_w, int)):

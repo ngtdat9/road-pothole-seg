@@ -118,3 +118,10 @@ def test_analyse_potholes_measures_the_cleaned_mask() -> None:
 def test_rejects_bad_min_part() -> None:
     with pytest.raises(ValueError):
         clean_mask(np.ones((3, 3), dtype=bool), min_part=1.5)
+
+
+def test_mask_bbox() -> None:
+    from road_pothole_seg.postprocess import mask_bbox
+
+    assert mask_bbox(_box_mask(50, 60, 5, 7, 20, 30)) == (5, 7, 20, 30)
+    assert mask_bbox(np.zeros((4, 4), dtype=bool)) is None

@@ -23,6 +23,18 @@ def classify_severity(value: float, bounds: tuple[float, float]) -> str:
     return "large"
 
 
+def mask_bbox(mask: np.ndarray) -> tuple[int, int, int, int] | None:
+    """(x0, y0, x1, y1) of the True pixels, end-exclusive; None for an empty mask.
+
+    Uses row and column `any`, much faster than `np.nonzero` on a full-frame mask.
+    """
+    rows = np.flatnonzero(mask.any(axis=1))
+    if rows.size == 0:
+        return None
+    cols = np.flatnonzero(mask[rows[0] : rows[-1] + 1].any(axis=0))
+    return int(cols[0]), int(rows[0]), int(cols[-1]) + 1, int(rows[-1]) + 1
+
+
 def clean_mask(mask: np.ndarray, min_part: float = 0.1) -> np.ndarray:
     """Return a cleaned copy of a bool mask: specks dropped, holes filled.
 
@@ -34,10 +46,10 @@ def clean_mask(mask: np.ndarray, min_part: float = 0.1) -> np.ndarray:
     if not 0.0 <= min_part <= 1.0:
         raise ValueError(f"min_part must be in [0, 1], got {min_part}")
     out = np.zeros(mask.shape, dtype=bool)
-    ys, xs = np.nonzero(mask)
-    if xs.size == 0:
+    box = mask_bbox(mask)
+    if box is None:
         return out
-    y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+    x0, y0, x1, y1 = box
     crop = mask[y0:y1, x0:x1].astype(np.uint8)
 
     n, labels, stats, _ = cv2.connectedComponentsWithStats(crop, connectivity=8)
@@ -73,9 +85,12 @@ def analyse_potholes(
     potholes: list[Pothole] = []
     for raw_mask, score in zip(seg.pothole_masks, seg.scores, strict=True):
         mask = clean_mask(raw_mask, min_part)
-        ys, xs = np.nonzero(mask)
-        if xs.size == 0:
+        box = mask_bbox(mask)
+        if box is None:
             continue
+        x0, y0, x1, y1 = box
+        ys, xs = np.nonzero(mask[y0:y1, x0:x1])
+        xs, ys = xs + x0, ys + y0
 
         area_px = int(xs.size)
         area_frac = area_px / mask.size
