@@ -16,7 +16,6 @@ dependencies = [
     "numpy>=1.23",
     "opencv-python>=4.8",
     "onnxruntime>=1.17",
-    "supervision>=0.25",
 ]
 
 [project.optional-dependencies]

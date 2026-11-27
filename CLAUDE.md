@@ -32,8 +32,10 @@ Week 1 (Nov 17–23): repo setup and dataset selection.
 <!-- Update this line at the start of each week. -->
 
 ## Architecture rules
-- `road_pothole_seg/` is the package. It imports only numpy, opencv-python,
-  onnxruntime and supervision — never ultralytics, torch, ROS, or camera/file I/O.
+- `road_pothole_seg/` is the package. It imports only numpy, opencv-python and
+  onnxruntime (plus the standard library) — never ultralytics, torch, ROS, or
+  camera/file I/O. ByteTrack is our own numpy code (supervision dropped it;
+  decided 2026-11-27). `tests/test_imports.py` enforces this.
 - Ultralytics is used only in `training/` for training and ONNX export.
 - Inference in the package uses ONNX Runtime on CPU.
 - Public API (frozen at v1.0): `Segmenter`, `analyse_potholes`, `PotholeTracker`,

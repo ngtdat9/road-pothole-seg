@@ -371,7 +371,7 @@ released as an installable package. Project 2 (a drone repo) installs this
 package, so the public API is a contract. See Project1_RoadPothole_Plan.md.
 
 # Architecture rules
-- road_pothole_seg/ imports only numpy, opencv, onnxruntime and supervision —
+- road_pothole_seg/ imports only numpy, opencv and onnxruntime (ByteTrack is our own code) —
   never ultralytics, torch, ROS or any camera/file I/O
 - Ultralytics is used only in training/ for training and export
 - Public API = Segmenter, analyse_potholes, PotholeTracker, types.py classes.

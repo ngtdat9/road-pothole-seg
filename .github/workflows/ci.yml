@@ -50,6 +50,6 @@ jobs:
       - name: Install
         run: pip install -e ".[dev]" "${{ matrix.numpy }}"
       - name: Show versions
-        run: python -c "import numpy, cv2, onnxruntime, supervision; print(numpy.__version__, cv2.__version__, onnxruntime.__version__, supervision.__version__)"
+        run: python -c "import numpy, cv2, onnxruntime; print(numpy.__version__, cv2.__version__, onnxruntime.__version__)"
       - name: Test
         run: pytest -q
