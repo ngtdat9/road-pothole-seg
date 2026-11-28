@@ -137,3 +137,37 @@ marks the exported weights AGPL-3.0, which conflicts with releasing them under M
   (target 15+ FPS on the Mac CPU: met, 16.7 FPS at 640). Experiment 4 is now ONNX Runtime
   CPU vs the CoreML provider on the Mac (16.7 vs 51.6 FPS at 640).
 - 2026-11-28: version 1.0.0, tag `v1.0`.
+- 2026-11-28: clean-install test. Fresh Python 3.11 venv outside the repo,
+  `pip install git+https://github.com/ngtdat9/road-pothole-seg.git@v1.0`: installs
+  road-pothole-seg 1.0.0 with numpy, opencv-python and onnxruntime only (no torch, no
+  PyYAML). Both README quick-start examples run unchanged with `baseline-640.onnx`
+  (image: one medium pothole; 10-frame clip: one track, ID 1 from frame 2).
+
+**Week 5 summary.** Demo app (`apps/run_video.py`: overlay video + pothole CSV) and README
+GIF; per-stage benchmark (Mac M1 CPU at 1280x720: 16.7 / 25.1 / 50.5 FPS at 640 / 480 /
+320, target 15+ met after cutting mask decoding from 12.4 to 4.0 ms); README for v1.0;
+released `v1.0`. The PC benchmark was dropped.
+
+## Project 1 summary (v1.0, 2026-11-28)
+
+- **What shipped:** an installable package (`Segmenter`, `analyse_potholes`,
+  `PotholeTracker`, types) that segments road and potholes in any BGR frame on CPU with
+  ONNX Runtime, measures and grades each pothole, and tracks it with a numpy ByteTrack.
+  Three dependencies; API frozen for v1.x.
+- **Data:** three CC BY 4.0 Roboflow sets merged to 3,140 images (634 near-duplicates
+  removed), seeded 70/15/15 split grouped by source; road pseudo-labelled on the
+  pothole-only set and checked by eye.
+- **Accuracy (test, opened once):** pothole mask mAP50 0.720, mAP50-95 0.401; road
+  mAP50-95 0.806 at 640. Nano, small and tuning runs were all within 0.01: the data is
+  the limit.
+- **Leakage finding:** a naive merge overstates pothole mAP50 by ~0.07 (0.780 on its own
+  split vs 0.714 on the clean test).
+- **Fidelity:** ONNX export lossless; package masks match Ultralytics at mean IoU 1.000.
+- **Speed:** 16.7 FPS at 640 on a Mac M1 CPU (CoreML: 51.6).
+- **Tracking:** 0 ID switches on synthetic dashcam and drone clips.
+- **Known limits:** small distant potholes (recall 0.55 under 0.1% of the frame),
+  look-alikes (water, cracks, patches), no top-down training data. Deferred: label size
+  that scales with the frame, dropping off-road potholes.
+- **For Project 2:** install from `@v1.0`; the road mask is always returned, and
+  `metres_per_px` gives `area_m2` on top-down frames. Drone fine-tuning comes back here
+  as v1.1.
