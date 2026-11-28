@@ -2,7 +2,7 @@
 
 Usage:
     python -m benchmarks.fps --source road.mp4 --name mac-m1
-    python -m benchmarks.fps --source road.mp4 --name pc-openvino --provider openvino
+    python -m benchmarks.fps --source road.mp4 --name mac-m1-coreml --provider coreml
 
 Loads `--frames` frames from the video (resized to `--frame-width`, keeping the aspect),
 then for each input size runs Segmenter -> analyse_potholes -> PotholeTracker on every
@@ -118,7 +118,7 @@ def bench_size(model: Path, frames: list[np.ndarray], config: dict[str, Any], pr
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--source", required=True, help="video file")
-    parser.add_argument("--name", required=True, help="machine label, e.g. mac-m1, pc-cpu")
+    parser.add_argument("--name", required=True, help="machine label, e.g. mac-m1, mac-m1-coreml")
     parser.add_argument("--provider", choices=sorted(PROVIDERS), default="cpu")
     parser.add_argument("--sizes", type=int, nargs="+", default=[640, 480, 320])
     parser.add_argument("--models", type=Path, default=REPO_ROOT / "models")

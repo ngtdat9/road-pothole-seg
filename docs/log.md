@@ -133,3 +133,7 @@ marks the exported weights AGPL-3.0, which conflicts with releasing them under M
   (check_onnx mean IoU 0.996 -> 1.000), as the old code rounded in uint8. ONNX Runtime's
   default thread count is fastest on the M1 (4 threads +5%, 8 threads +37% slower).
   CoreML provider (Mac only, for reference; not parity-checked): 51.6 FPS at 640.
+- 2026-11-28: PC benchmark dropped from the plan; speed is reported for the Mac only
+  (target 15+ FPS on the Mac CPU: met, 16.7 FPS at 640). Experiment 4 is now ONNX Runtime
+  CPU vs the CoreML provider on the Mac (16.7 vs 51.6 FPS at 640).
+- 2026-11-28: version 1.0.0, tag `v1.0`.
